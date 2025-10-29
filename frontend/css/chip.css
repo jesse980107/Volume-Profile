@@ -1,0 +1,245 @@
+/**
+ * 筹码峰样式
+ * 独立管理筹码分布面板的所有样式
+ */
+
+/* ==================== 布局 ==================== */
+.chart-row {
+    display: flex;
+    gap: 15px;
+    height: 600px;
+    margin-bottom: 20px;
+}
+
+.chart-main {
+    flex: 7;
+    background: #1e222d;
+    border-radius: 8px;
+    min-width: 0; /* 防止 flex 溢出 */
+}
+
+.chip-panel {
+    flex: 3;
+    background: #1e222d;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    min-width: 280px;
+    max-width: 400px;
+}
+
+/* ==================== 头部 ==================== */
+.chip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a2e39;
+}
+
+.chip-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #d1d4dc;
+    letter-spacing: 0.5px;
+}
+
+.chip-date {
+    font-size: 12px;
+    color: #787b86;
+    font-family: 'Courier New', monospace;
+}
+
+/* ==================== 图表容器 ==================== */
+.chip-canvas {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+/* 加载提示 */
+.chip-canvas.loading::after {
+    content: '加载中...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #787b86;
+    font-size: 14px;
+}
+
+/* ==================== 统计信息 ==================== */
+.chip-stats {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #2a2e39;
+}
+
+.stat-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.stat-row:last-child {
+    margin-bottom: 0;
+}
+
+.stat-item {
+    flex: 1;
+    background: #131722;
+    padding: 12px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+    background: #1a1e2b;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.stat-label {
+    display: block;
+    font-size: 11px;
+    color: #787b86;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: #d1d4dc;
+    font-family: 'Courier New', monospace;
+}
+
+/* 获利盘样式 */
+.stat-value.profit {
+    color: #26a69a;
+    text-shadow: 0 0 10px rgba(38, 166, 154, 0.3);
+}
+
+/* 套牢盘样式 */
+.stat-value.loss {
+    color: #ef5350;
+    text-shadow: 0 0 10px rgba(239, 83, 80, 0.3);
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 1400px) {
+    .chart-row {
+        height: 500px;
+    }
+
+    .chip-panel {
+        min-width: 250px;
+        padding: 15px;
+    }
+
+    .chip-header h3 {
+        font-size: 14px;
+    }
+
+    .stat-value {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .chart-row {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .chart-main {
+        height: 500px;
+    }
+
+    .chip-panel {
+        max-width: 100%;
+        height: 400px;
+    }
+}
+
+/* ==================== 动画效果 ==================== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chip-panel {
+    animation: fadeIn 0.3s ease;
+}
+
+/* 统计项进入动画 */
+.stat-item {
+    animation: fadeIn 0.4s ease;
+}
+
+.stat-row:nth-child(1) .stat-item {
+    animation-delay: 0.1s;
+}
+
+.stat-row:nth-child(2) .stat-item {
+    animation-delay: 0.2s;
+}
+
+/* ==================== 空状态 ==================== */
+.chip-panel.empty .chip-canvas::before {
+    content: '将鼠标悬停在K线上查看筹码分布';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #787b86;
+    font-size: 13px;
+    text-align: center;
+    width: 80%;
+}
+
+/* ==================== 图例说明 ==================== */
+.chip-legend {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #2a2e39;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 11px;
+    color: #787b86;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 5px;
+}
+
+.legend-color.profit {
+    background: linear-gradient(90deg, rgba(239, 83, 80, 0.3), rgba(239, 83, 80, 0.8));
+}
+
+.legend-color.loss {
+    background: linear-gradient(90deg, rgba(38, 166, 154, 0.3), rgba(38, 166, 154, 0.8));
+}
+
+.legend-color.peak {
+    background: linear-gradient(90deg, rgba(255, 107, 107, 0.5), rgba(255, 107, 107, 1));
+}

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 股票分析系统 - Lightweight Charts</title>
+
+    <!-- Lightweight Charts v5.x CDN -->
+    <script src="https://unpkg.com/lightweight-charts@latest/dist/lightweight-charts.standalone.production.js"></script>
+
+    <!-- ECharts for 筹码峰 -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/chip.css">
+</head>
+<body>
+    <!-- 头部 -->
+    <header class="header">
+        <h1>📈 川能动力 (000155.SZ) 股票分析系统</h1>
+        <p class="subtitle">基于 Lightweight Charts + FastAPI 构建</p>
+    </header>
+
+    <!-- 控制面板 -->
+    <div class="controls">
+        <div class="control-group">
+            <label>技术指标:</label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-sma5" checked>
+                <span>MA5</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-sma10" checked>
+                <span>MA10</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-sma20" checked>
+                <span>MA20</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-sma60">
+                <span>MA60</span>
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label>高级指标:</label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-boll">
+                <span>布林带</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-macd">
+                <span>MACD</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-kdj">
+                <span>KDJ</span>
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="show-rsi">
+                <span>RSI</span>
+            </label>
+        </div>
+
+        <button id="refresh-btn" class="btn-primary">🔄 刷新数据</button>
+    </div>
+
+    <!-- 图表容器 -->
+    <div class="chart-container">
+        <div class="chart-row">
+            <!-- 左侧：K线图 (70%) -->
+            <div id="main-chart" class="chart-main"></div>
+
+            <!-- 右侧：筹码峰 (30%) -->
+            <div id="chip-panel" class="chip-panel">
+                <div class="chip-header">
+                    <h3>筹码分布</h3>
+                    <div class="chip-date" id="chip-date">--</div>
+                </div>
+                <div id="chip-canvas" class="chip-canvas"></div>
+                <div class="chip-stats">
+                    <div class="stat-row">
+                        <div class="stat-item">
+                            <span class="stat-label">筹码集中度</span>
+                            <span class="stat-value" id="concentration">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">主力成本</span>
+                            <span class="stat-value" id="main-cost">--</span>
+                        </div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-item">
+                            <span class="stat-label">获利盘</span>
+                            <span class="stat-value profit" id="profit-ratio">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">套牢盘</span>
+                            <span class="stat-value loss" id="loss-ratio">--</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 图例说明 -->
+                <div class="chip-legend">
+                    <div class="legend-item">
+                        <div class="legend-color profit"></div>
+                        <span>获利盘</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color loss"></div>
+                        <span>套牢盘</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color peak"></div>
+                        <span>筹码峰</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载提示 -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading data...</p>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- 筹码峰管理器 -->
+    <script src="/static/js/chipManager.js"></script>
+
+    <!-- 主应用脚本 -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
