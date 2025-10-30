@@ -8,6 +8,7 @@ import pandas as pd
 from backend.core.dependencies import get_data_service, get_indicator_service
 from backend.services.data_service import DataService
 from backend.services.indicator_service import IndicatorService
+from backend.services.timeframe_service import TimeframeService, TimeframeType
 from backend.schemas.stock import (
     StockDataResponse,
     CandleData,
@@ -31,6 +32,7 @@ async def get_stock_data(
     symbol: str,
     data_service: Annotated[DataService, Depends(get_data_service)],
     indicator_service: Annotated[IndicatorService, Depends(get_indicator_service)],
+    interval: TimeframeType = Query(default="daily", description="时间间隔: daily(日线), weekly(周线), monthly(月线)"),
     start_date: str | None = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
 ):
@@ -38,6 +40,7 @@ async def get_stock_data(
     获取股票数据及技术指标
 
     - **symbol**: 股票代码 (例如: 000155.sz)
+    - **interval**: 时间间隔 - daily(日线, 默认), weekly(周线), monthly(月线)
     - **start_date**: 可选,筛选开始日期
     - **end_date**: 可选,筛选结束日期
     """
@@ -45,7 +48,7 @@ async def get_stock_data(
         # 加载数据
         df = await data_service.load_stock_data(symbol)
 
-        # 日期筛选
+        # 日期筛选（在聚合之前进行）
         if start_date:
             df = df[df['time'] >= start_date]
         if end_date:
@@ -54,7 +57,12 @@ async def get_stock_data(
         if df.empty:
             raise HTTPException(status_code=404, detail="No data found for the given date range")
 
-        # 计算所有技术指标
+        # 根据时间间隔聚合数据（需要将 'time' 列重命名为 'date' 以匹配 TimeframeService）
+        df_temp = df.rename(columns={'time': 'date'})
+        df_temp = TimeframeService.resample_data(df_temp, interval)
+        df = df_temp.rename(columns={'date': 'time'})
+
+        # 计算所有技术指标（在聚合后的数据上计算）
         df = indicator_service.add_all_indicators(df)
 
         # 构建响应数据

@@ -16,64 +16,24 @@
     <link rel="stylesheet" href="/static/css/chip.css">
 </head>
 <body>
-    <!-- 头部 -->
-    <header class="header">
-        <h1>📈 川能动力 (000155.SZ) 股票分析系统</h1>
-        <p class="subtitle">基于 Lightweight Charts + FastAPI 构建</p>
-    </header>
-
-    <!-- 控制面板 -->
-    <div class="controls">
-        <div class="control-group">
-            <label>技术指标:</label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-sma5" checked>
-                <span>MA5</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-sma10" checked>
-                <span>MA10</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-sma20" checked>
-                <span>MA20</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-sma60">
-                <span>MA60</span>
-            </label>
-        </div>
-
-        <div class="control-group">
-            <label>高级指标:</label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-boll">
-                <span>布林带</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-macd">
-                <span>MACD</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-kdj">
-                <span>KDJ</span>
-            </label>
-            <label class="checkbox-label">
-                <input type="checkbox" id="show-rsi">
-                <span>RSI</span>
-            </label>
-        </div>
-
-        <button id="refresh-btn" class="btn-primary">🔄 刷新数据</button>
-    </div>
-
     <!-- 图表容器 -->
     <div class="chart-container">
         <div class="chart-row">
-            <!-- 左侧：K线图 (70%) -->
-            <div id="main-chart" class="chart-main"></div>
+            <!-- 左侧：TradingView 图表 -->
+            <div class="chart-main-wrapper">
+                <!-- 时间间隔控制栏 -->
+                <div class="timeframe-controls">
+                    <div class="timeframe-buttons">
+                        <button id="btn-daily" class="timeframe-btn active" data-interval="daily">日线</button>
+                        <button id="btn-weekly" class="timeframe-btn" data-interval="weekly">周线</button>
+                        <button id="btn-monthly" class="timeframe-btn" data-interval="monthly">月线</button>
+                    </div>
+                </div>
+                <div id="main-chart" class="chart-main"></div>
+                <!-- Indicator Selector 组件会动态插入到这里 -->
+            </div>
 
-            <!-- 右侧：筹码峰 (30%) -->
+            <!-- 右侧：筹码峰面板 (320px) -->
             <div id="chip-panel" class="chip-panel">
                 <div class="chip-header">
                     <h3>筹码分布</h3>
@@ -117,6 +77,68 @@
                         <span>筹码峰</span>
                     </div>
                 </div>
+
+                <!-- 设置按钮 -->
+                <button id="chip-settings-btn" class="chip-settings-btn">⚙️ 筹码设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 筹码峰设置面板（弹窗） -->
+    <div id="chip-settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>筹码峰设置</h3>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- 回溯天数 -->
+                <div class="setting-group">
+                    <label class="setting-label">回溯天数</label>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <input type="number" id="lookback-days" class="setting-input"
+                               value="90" min="1" max="9999"
+                               style="flex: 1;">
+                        <label style="display: flex; align-items: center; gap: 5px; color: #d1d4dc; font-size: 13px; cursor: pointer; white-space: nowrap;">
+                            <input type="checkbox" id="use-all-history" style="cursor: pointer;">
+                            全部历史
+                        </label>
+                    </div>
+                    <p class="setting-desc">限制参与筹码计算的历史数据范围（勾选"全部历史"则使用所有数据）</p>
+                </div>
+
+                <!-- 算法选择 -->
+                <div class="setting-group">
+                    <label class="setting-label">衰减算法</label>
+                    <select id="decay-algorithm" class="setting-select">
+                        <option value="cumulative" selected>简单累积（无衰减）</option>
+                        <option value="exponential_decay">指数衰减</option>
+                        <option value="linear_decay">线性衰减</option>
+                    </select>
+                    <p class="setting-desc">筹码的时间衰减方式，模拟换手转移</p>
+                </div>
+
+                <!-- 衰减率 -->
+                <div class="setting-group">
+                    <label class="setting-label">
+                        衰减率 <span id="decay-rate-display">0.05</span>
+                    </label>
+                    <input type="range" id="decay-rate" class="setting-slider"
+                           min="0" max="0.2" step="0.01" value="0.05">
+                    <p class="setting-desc">衰减速度，值越大历史筹码消失越快</p>
+                </div>
+
+                <!-- 价格档位数 -->
+                <div class="setting-group">
+                    <label class="setting-label">价格档位数</label>
+                    <input type="number" id="num-bins" class="setting-input"
+                           min="20" max="100" step="10" value="50">
+                    <p class="setting-desc">筹码分布的精细度，建议30-70之间</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="reset-settings-btn" class="btn-secondary">恢复默认</button>
+                <button id="apply-settings-btn" class="btn-primary">应用设置</button>
             </div>
         </div>
     </div>
@@ -130,8 +152,17 @@
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
 
+    <!-- 筹码计算器 -->
+    <script src="/static/js/chipCalculator.js"></script>
+
     <!-- 筹码峰管理器 -->
     <script src="/static/js/chipManager.js"></script>
+
+    <!-- OHLCV Bar 组件 -->
+    <script src="/static/js/ohlcvBar.js"></script>
+
+    <!-- Indicator 选择器组件 -->
+    <script src="/static/js/indicatorSelector.js"></script>
 
     <!-- 主应用脚本 -->
     <script src="/static/js/app.js"></script>

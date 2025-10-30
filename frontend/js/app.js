@@ -9,6 +9,7 @@ const state = {
     stockData: null,
     chipData: null,  // 筹码数据
     chart: null,  // 单个 chart 实例
+    currentInterval: 'daily',  // 当前时间间隔：daily, weekly, monthly
     panes: {
         main: null,      // 主图 pane (K线 + 均线)
         volume: null,    // 成交量 pane
@@ -94,14 +95,15 @@ const utils = {
 };
 
 // ==================== API 调用 ====================
-async function fetchStockData() {
+async function fetchStockData(interval = 'daily') {
     utils.showLoading();
     try {
-        const response = await fetch(`${config.apiUrl}/${config.symbol}`);
+        const response = await fetch(`${config.apiUrl}/${config.symbol}?interval=${interval}`);
         if (!response.ok) throw new Error('Failed to fetch data');
 
         state.stockData = await response.json();
-        console.log('✅ 数据加载成功:', state.stockData);
+        state.currentInterval = interval;
+        console.log(`✅ 数据加载成功 (${interval}):`, state.stockData);
         return state.stockData;
     } catch (error) {
         utils.handleError(error);
@@ -118,33 +120,38 @@ function initializeCharts() {
     const { createChart } = LightweightCharts;
     const container = document.getElementById('main-chart');
 
-    // 计算图表高度：视口高度 - 头部 - 控制面板 - 一些边距
-    const chartHeight = window.innerHeight - 200; // 200px 留给头部和控制面板
-
-    // 创建单个 chart 实例，高度占满剩余空间
+    // 创建单个 chart 实例，占满容器高度（深色主题）
     state.chart = createChart(container, {
         width: container.clientWidth,
-        height: chartHeight,
+        height: container.clientHeight,
         layout: {
-            background: { color: '#ffffff' },
-            textColor: '#333',
+            background: { color: '#222' },
+            textColor: '#DDD',
         },
         grid: {
-            vertLines: { color: '#f0f0f0' },
-            horzLines: { color: '#f0f0f0' },
+            vertLines: { color: '#444' },
+            horzLines: { color: '#444' },
         },
         crosshair: {
             mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: {
+                color: '#C3BCDB44',
+                labelBackgroundColor: '#9B7DFF',
+            },
+            horzLine: {
+                color: '#9B7DFF',
+                labelBackgroundColor: '#9B7DFF',
+            },
         },
         timeScale: {
-            borderColor: '#ccc',
+            borderColor: '#71649C',
             timeVisible: true,
             rightOffset: 5,  // 右侧留白
             barSpacing: 6,   // K线间距
             lockVisibleTimeRangeOnResize: true,
         },
         rightPriceScale: {
-            borderColor: '#ccc',
+            borderColor: '#71649C',
         },
         leftPriceScale: {
             visible: false,
@@ -171,98 +178,8 @@ function initializeCharts() {
 // Crosshair 也会自动在所有 panes 中对齐
 // 因此不再需要 syncTimeScales() 和 syncChartSizes() 函数
 
-// ==================== Tooltip 显示 ====================
-// 多 Pane API 自动同步 Crosshair，只需要订阅一次即可
-function setupCrosshairSync() {
-    console.log('🎯 设置 Tooltip 显示...');
-
-    const tooltip = document.getElementById('tooltip');
-
-    // 订阅 chart 的 crosshair 移动事件（自动在所有 panes 中同步）
-    state.chart.subscribeCrosshairMove((param) => {
-        // 鼠标离开或没有数据
-        if (!param || !param.time || !param.point) {
-            tooltip.style.display = 'none';
-            return;
-        }
-
-        // 显示 tooltip
-        showTooltip(param);
-    });
-
-    console.log('✅ Tooltip 设置完成（Crosshair 自动同步）');
-}
-
-function showTooltip(param) {
-    const tooltip = document.getElementById('tooltip');
-
-    // 获取所有系列在当前时间点的数据
-    const candleData = param.seriesData.get(state.series.candle);
-    const volumeData = param.seriesData.get(state.series.volume);
-
-    if (!candleData) {
-        tooltip.style.display = 'none';
-        return;
-    }
-
-    // 构建横向排列的 tooltip 内容
-    const priceChange = candleData.close - candleData.open;
-    const priceChangeClass = priceChange >= 0 ? 'up' : 'down';
-
-    let items = [];
-
-    // K线数据
-    items.push(`<span class="tooltip-item">O: ${utils.formatNumber(candleData.open)}</span>`);
-    items.push(`<span class="tooltip-item">H: ${utils.formatNumber(candleData.high)}</span>`);
-    items.push(`<span class="tooltip-item">L: ${utils.formatNumber(candleData.low)}</span>`);
-    items.push(`<span class="tooltip-item">C: <span class="${priceChangeClass}">${utils.formatNumber(candleData.close)}</span></span>`);
-
-    // 成交量
-    if (volumeData) {
-        items.push(`<span class="tooltip-item">Vol: ${utils.formatNumber(volumeData.value, 0)}</span>`);
-    }
-
-    // 均线数据
-    const sma5Data = param.seriesData.get(state.series.sma5);
-    const sma10Data = param.seriesData.get(state.series.sma10);
-    const sma20Data = param.seriesData.get(state.series.sma20);
-
-    if (sma5Data) items.push(`<span class="tooltip-item">MA5: ${utils.formatNumber(sma5Data.value)}</span>`);
-    if (sma10Data) items.push(`<span class="tooltip-item">MA10: ${utils.formatNumber(sma10Data.value)}</span>`);
-    if (sma20Data) items.push(`<span class="tooltip-item">MA20: ${utils.formatNumber(sma20Data.value)}</span>`);
-
-    // MACD 数据
-    const macdLineData = param.seriesData.get(state.series.macdLine);
-    const macdSignalData = param.seriesData.get(state.series.macdSignal);
-    const macdHistData = param.seriesData.get(state.series.macdHist);
-
-    if (macdLineData) items.push(`<span class="tooltip-item">DIF: ${utils.formatNumber(macdLineData.value, 4)}</span>`);
-    if (macdSignalData) items.push(`<span class="tooltip-item">DEA: ${utils.formatNumber(macdSignalData.value, 4)}</span>`);
-    if (macdHistData) {
-        const histClass = macdHistData.value >= 0 ? 'up' : 'down';
-        items.push(`<span class="tooltip-item">MACD: <span class="${histClass}">${utils.formatNumber(macdHistData.value, 4)}</span></span>`);
-    }
-
-    // KDJ 数据
-    const kLineData = param.seriesData.get(state.series.kLine);
-    const dLineData = param.seriesData.get(state.series.dLine);
-    const jLineData = param.seriesData.get(state.series.jLine);
-
-    if (kLineData) items.push(`<span class="tooltip-item">K: ${utils.formatNumber(kLineData.value)}</span>`);
-    if (dLineData) items.push(`<span class="tooltip-item">D: ${utils.formatNumber(dLineData.value)}</span>`);
-    if (jLineData) items.push(`<span class="tooltip-item">J: ${utils.formatNumber(jLineData.value)}</span>`);
-
-    // RSI 数据
-    const rsiLineData = param.seriesData.get(state.series.rsiLine);
-    if (rsiLineData) items.push(`<span class="tooltip-item">RSI: ${utils.formatNumber(rsiLineData.value)}</span>`);
-
-    tooltip.innerHTML = items.join(' ');
-
-    // 固定在左上角
-    tooltip.style.left = '10px';
-    tooltip.style.top = '10px';
-    tooltip.style.display = 'block';
-}
+// ==================== OHLCV Bar 显示（使用组件）====================
+// 使用 ohlcvBar 组件替代原来的 tooltip 逻辑
 
 // ==================== 数据渲染 (多 Pane API) ====================
 function renderMainChart(data) {
@@ -486,109 +403,201 @@ function renderRSIChart(data) {
     console.log('✅ RSI 图表渲染完成');
 }
 
+// ==================== 时间间隔切换 ====================
+async function switchTimeframe(interval) {
+    console.log(`🔄 切换时间间隔: ${interval}`);
+
+    try {
+        // 1. 获取新数据
+        const data = await fetchStockData(interval);
+
+        // 2. 更新所有系列的数据
+        if (state.series.candle) state.series.candle.setData(data.candlestick);
+        if (state.series.volume) state.series.volume.setData(data.volume);
+        if (state.series.sma5) state.series.sma5.setData(data.sma5);
+        if (state.series.sma10) state.series.sma10.setData(data.sma10);
+        if (state.series.sma20) state.series.sma20.setData(data.sma20);
+        if (state.series.sma60) state.series.sma60.setData(data.sma60);
+        if (state.series.bollUpper) state.series.bollUpper.setData(data.boll.upper);
+        if (state.series.bollMiddle) state.series.bollMiddle.setData(data.boll.middle);
+        if (state.series.bollLower) state.series.bollLower.setData(data.boll.lower);
+
+        // 3. 更新 MACD 数据（如果已创建）
+        if (state.panes.macd && state.series.macdLine) {
+            state.series.macdLine.setData(data.macd.macd);
+            state.series.macdSignal.setData(data.macd.signal);
+            const histData = data.macd.histogram.map(item => ({
+                time: item.time,
+                value: item.value,
+                color: item.value >= 0 ? config.colors.up : config.colors.down,
+            }));
+            state.series.macdHist.setData(histData);
+        }
+
+        // 4. 更新 KDJ 数据（如果已创建）
+        if (state.panes.kdj && state.series.kLine) {
+            state.series.kLine.setData(data.kdj.k);
+            state.series.dLine.setData(data.kdj.d);
+            state.series.jLine.setData(data.kdj.j);
+        }
+
+        // 5. 更新 RSI 数据（如果已创建）
+        if (state.panes.rsi && state.series.rsiLine) {
+            state.series.rsiLine.setData(data.rsi);
+            state.series.rsiOverbought.setData(data.rsi.map(item => ({ time: item.time, value: 70 })));
+            state.series.rsiOversold.setData(data.rsi.map(item => ({ time: item.time, value: 30 })));
+        }
+
+        // 6. 更新筹码分布（如果已加载）
+        if (typeof chipCalculator !== 'undefined' && typeof chipManager !== 'undefined') {
+            chipCalculator.initialize(data.candlestick, data.volume);
+            const options = getChipSettingsFromUI();
+            chipCalculator.updateOptions(options);
+
+            utils.showLoading('正在计算筹码分布...');
+            chipCalculator.precomputeAll();
+            utils.hideLoading();
+
+            const lastCandle = data.candlestick[data.candlestick.length - 1];
+            const lastChipData = chipCalculator.get(lastCandle.time);
+            if (lastChipData) {
+                chipManager.updateGlobal(lastChipData);
+            }
+        }
+
+        // 7. 调整可见范围
+        state.chart.timeScale().fitContent();
+
+        // 8. 更新按钮状态
+        document.querySelectorAll('.timeframe-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-interval="${interval}"]`)?.classList.add('active');
+
+        console.log(`✅ 时间间隔切换完成: ${interval}`);
+    } catch (error) {
+        console.error('❌ 时间间隔切换失败:', error);
+        alert(`切换时间间隔失败: ${error.message}`);
+    }
+}
+
 // ==================== 控制面板事件 ====================
 function setupControls() {
     console.log('⚙️ 设置控制面板...');
 
-    // 均线显示控制
-    document.getElementById('show-sma5').addEventListener('change', (e) => {
-        state.series.sma5.applyOptions({ visible: e.target.checked });
-    });
+    // 初始化 indicator 选择器组件
+    if (typeof indicatorSelector !== 'undefined') {
+        indicatorSelector.init('main-chart');
 
-    document.getElementById('show-sma10').addEventListener('change', (e) => {
-        state.series.sma10.applyOptions({ visible: e.target.checked });
-    });
+        // 均线显示控制
+        indicatorSelector.on('show-sma5', (checked) => {
+            state.series.sma5.applyOptions({ visible: checked });
+        });
 
-    document.getElementById('show-sma20').addEventListener('change', (e) => {
-        state.series.sma20.applyOptions({ visible: e.target.checked });
-    });
+        indicatorSelector.on('show-sma10', (checked) => {
+            state.series.sma10.applyOptions({ visible: checked });
+        });
 
-    document.getElementById('show-sma60').addEventListener('change', (e) => {
-        state.series.sma60.applyOptions({ visible: e.target.checked });
-    });
+        indicatorSelector.on('show-sma20', (checked) => {
+            state.series.sma20.applyOptions({ visible: checked });
+        });
 
-    // 布林带显示控制
-    document.getElementById('show-boll').addEventListener('change', (e) => {
-        const visible = e.target.checked;
-        state.series.bollUpper.applyOptions({ visible });
-        state.series.bollMiddle.applyOptions({ visible });
-        state.series.bollLower.applyOptions({ visible });
-    });
+        indicatorSelector.on('show-sma60', (checked) => {
+            state.series.sma60.applyOptions({ visible: checked });
+        });
 
-    // MACD 显示控制
-    document.getElementById('show-macd').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            // 首次显示时创建 pane
-            if (!state.panes.macd) {
-                console.log('📊 创建 MACD pane...');
-                state.panes.macd = state.chart.addPane();
+        // 布林带显示控制
+        indicatorSelector.on('show-boll', (checked) => {
+            state.series.bollUpper.applyOptions({ visible: checked });
+            state.series.bollMiddle.applyOptions({ visible: checked });
+            state.series.bollLower.applyOptions({ visible: checked });
+        });
 
-                // 渲染已保存的数据
-                if (state.stockData && state.stockData.macd) {
-                    renderMACDChart(state.stockData);
+        // MACD 显示控制
+        indicatorSelector.on('show-macd', (checked) => {
+            if (checked) {
+                // 首次显示时创建 pane
+                if (!state.panes.macd) {
+                    console.log('📊 创建 MACD pane...');
+                    state.panes.macd = state.chart.addPane();
+
+                    // 渲染已保存的数据
+                    if (state.stockData && state.stockData.macd) {
+                        renderMACDChart(state.stockData);
+                    }
+                }
+            } else {
+                // 取消勾选时移除 pane
+                if (state.panes.macd) {
+                    const paneIndex = state.chart.panes().indexOf(state.panes.macd);
+                    state.chart.removePane(paneIndex);
+                    state.panes.macd = null;
                 }
             }
-        } else {
-            // 取消勾选时移除 pane
-            if (state.panes.macd) {
-                const paneIndex = state.chart.panes().indexOf(state.panes.macd);
-                state.chart.removePane(paneIndex);
-                state.panes.macd = null;
-            }
-        }
-    });
+        });
 
-    // KDJ 显示控制
-    document.getElementById('show-kdj').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            // 首次显示时创建 pane
-            if (!state.panes.kdj) {
-                console.log('📊 创建 KDJ pane...');
-                state.panes.kdj = state.chart.addPane();
+        // KDJ 显示控制
+        indicatorSelector.on('show-kdj', (checked) => {
+            if (checked) {
+                // 首次显示时创建 pane
+                if (!state.panes.kdj) {
+                    console.log('📊 创建 KDJ pane...');
+                    state.panes.kdj = state.chart.addPane();
 
-                // 渲染已保存的数据
-                if (state.stockData && state.stockData.kdj) {
-                    renderKDJChart(state.stockData);
+                    // 渲染已保存的数据
+                    if (state.stockData && state.stockData.kdj) {
+                        renderKDJChart(state.stockData);
+                    }
+                }
+            } else {
+                // 取消勾选时移除 pane
+                if (state.panes.kdj) {
+                    const paneIndex = state.chart.panes().indexOf(state.panes.kdj);
+                    state.chart.removePane(paneIndex);
+                    state.panes.kdj = null;
                 }
             }
-        } else {
-            // 取消勾选时移除 pane
-            if (state.panes.kdj) {
-                const paneIndex = state.chart.panes().indexOf(state.panes.kdj);
-                state.chart.removePane(paneIndex);
-                state.panes.kdj = null;
-            }
-        }
-    });
+        });
 
-    // RSI 显示控制
-    document.getElementById('show-rsi').addEventListener('change', (e) => {
-        if (e.target.checked) {
-            // 首次显示时创建 pane
-            if (!state.panes.rsi) {
-                console.log('📊 创建 RSI pane...');
-                state.panes.rsi = state.chart.addPane();
+        // RSI 显示控制
+        indicatorSelector.on('show-rsi', (checked) => {
+            if (checked) {
+                // 首次显示时创建 pane
+                if (!state.panes.rsi) {
+                    console.log('📊 创建 RSI pane...');
+                    state.panes.rsi = state.chart.addPane();
 
-                // 渲染已保存的数据
-                if (state.stockData && state.stockData.rsi) {
-                    renderRSIChart(state.stockData);
+                    // 渲染已保存的数据
+                    if (state.stockData && state.stockData.rsi) {
+                        renderRSIChart(state.stockData);
+                    }
+                }
+            } else {
+                // 取消勾选时移除 pane
+                if (state.panes.rsi) {
+                    const paneIndex = state.chart.panes().indexOf(state.panes.rsi);
+                    state.chart.removePane(paneIndex);
+                    state.panes.rsi = null;
                 }
             }
-        } else {
-            // 取消勾选时移除 pane
-            if (state.panes.rsi) {
-                const paneIndex = state.chart.panes().indexOf(state.panes.rsi);
-                state.chart.removePane(paneIndex);
-                state.panes.rsi = null;
-            }
-        }
-    });
+        });
 
-    // 刷新按钮
-    document.getElementById('refresh-btn').addEventListener('click', async () => {
-        console.log('🔄 刷新数据...');
-        await init();
+        console.log('✅ Indicator 选择器组件已设置');
+    } else {
+        console.warn('⚠️  Indicator 选择器组件未加载');
+    }
+
+    // 时间间隔切换按钮事件
+    const timeframeButtons = document.querySelectorAll('.timeframe-btn');
+    timeframeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const interval = btn.dataset.interval;
+            if (interval && interval !== state.currentInterval) {
+                switchTimeframe(interval);
+            }
+        });
     });
+    console.log('✅ 时间间隔按钮已设置');
 
     console.log('✅ 控制面板设置完成');
 }
@@ -600,10 +609,9 @@ function setupResponsive() {
     window.addEventListener('resize', () => {
         if (state.chart) {
             const container = document.getElementById('main-chart');
-            const chartHeight = window.innerHeight - 200; // 保持与初始化时相同的计算
             state.chart.applyOptions({
                 width: container.clientWidth,
-                height: chartHeight
+                height: container.clientHeight
             });
         }
     });
@@ -632,17 +640,24 @@ async function init() {
         renderKDJChart(data);   // 如果 pane 未创建，会跳过
         renderRSIChart(data);   // 如果 pane 未创建，会跳过
 
-        // 4. 初始化筹码峰管理器
-        if (typeof chipManager !== 'undefined') {
+        // 4. 初始化 OHLCV Bar 组件
+        if (typeof ohlcvBar !== 'undefined') {
+            ohlcvBar.init(state.chart, state.series, 'main-chart');
+            console.log('✅ OHLCV Bar 组件已加载');
+        } else {
+            console.warn('⚠️  OHLCV Bar 组件未加载');
+        }
+
+        // 5. 初始化筹码峰管理器
+        if (typeof chipManager !== 'undefined' && typeof chipCalculator !== 'undefined') {
             chipManager.init();
+            await initializeChipDistribution();
             setupChipDistributionSync();
+            setupChipSettings();
             console.log('✅ 筹码峰模块已加载');
         } else {
             console.warn('⚠️  筹码峰模块未加载');
         }
-
-        // 5. 设置 Tooltip 显示（多 Pane API 自动同步 Crosshair）
-        setupCrosshairSync();
 
         // 6. 设置控制面板
         setupControls();
@@ -656,21 +671,61 @@ async function init() {
     }
 }
 
-// ==================== 筹码峰同步 ====================
+// ==================== 筹码峰初始化 ====================
+/**
+ * 初始化筹码分布计算
+ */
+async function initializeChipDistribution() {
+    try {
+        // 1. 初始化计算器
+        chipCalculator.initialize(
+            state.stockData.candlestick,
+            state.stockData.volume
+        );
+
+        // 2. 应用默认设置（从UI读取）
+        const options = getChipSettingsFromUI();
+        chipCalculator.updateOptions(options);
+
+        // 3. 预计算所有筹码数据
+        console.log('开始预计算筹码分布...');
+        utils.showLoading('正在计算筹码分布...');
+
+        chipCalculator.precomputeAll((current, total) => {
+            // 更新进度（可选）
+            const progress = (current / total * 100).toFixed(0);
+            console.log(`预计算进度: ${progress}%`);
+        });
+
+        utils.hideLoading();
+        console.log('✓ 筹码分布预计算完成');
+
+        // 4. 显示默认视图（最后一根K线的筹码分布）
+        const lastCandle = state.stockData.candlestick[state.stockData.candlestick.length - 1];
+        const lastChipData = chipCalculator.get(lastCandle.time);
+        if (lastChipData) {
+            chipManager.updateGlobal(lastChipData);
+        }
+
+    } catch (error) {
+        console.error('筹码分布初始化失败:', error);
+        utils.hideLoading();
+    }
+}
+
+
+
 /**
  * 设置筹码峰与 K 线图的联动
  */
 function setupChipDistributionSync() {
     if (!state.chart || typeof chipManager === 'undefined') return;
 
-    // 1. 初始加载：显示全局筹码分布
-    const globalChipData = calculateGlobalChipDistribution();
-    if (globalChipData) {
-        chipManager.updateGlobal(globalChipData);
-    }
-
-    // 2. 监听十字线移动事件（仅更新价格标记线）
+    // 1. 监听十字线移动事件（切换筹码数据）
     state.chart.subscribeCrosshairMove((param) => {
+        // 调试：打印 param 对象查看可用字段
+        console.log('CrosshairMove param:', param);
+
         // 没有时间数据时清除价格标记
         if (!param.time) {
             chipManager.clearPriceLine();
@@ -684,117 +739,183 @@ function setupChipDistributionSync() {
             return;
         }
 
-        // 获取当前价格（收盘价）
-        const currentPrice = candleData.close;
+        // 获取该日期的筹码数据
+        const chipData = chipCalculator.get(param.time);
+        if (!chipData) {
+            chipManager.clearPriceLine();
+            return;
+        }
+
+        // 更新筹码峰显示
+        chipManager.updateGlobal(chipData);
+
+        // 获取光标 Y 坐标对应的价格
+        let cursorPrice = candleData.close; // 默认值
+
+        if (param.point && param.logical !== undefined) {
+            try {
+                // 通过可见范围和图表高度计算光标价格
+                const chartElement = document.getElementById('main-chart');
+                if (chartElement) {
+                    const chartHeight = chartElement.clientHeight;
+                    const mouseY = param.point.y;
+
+                    // 获取可见范围内的价格极值
+                    const visibleRange = state.chart.timeScale().getVisibleLogicalRange();
+                    if (visibleRange) {
+                        const startIndex = Math.max(0, Math.floor(visibleRange.from));
+                        const endIndex = Math.min(state.stockData.candlestick.length - 1, Math.ceil(visibleRange.to));
+
+                        let minPrice = Infinity;
+                        let maxPrice = -Infinity;
+
+                        for (let i = startIndex; i <= endIndex; i++) {
+                            const candle = state.stockData.candlestick[i];
+                            if (candle) {
+                                minPrice = Math.min(minPrice, candle.low);
+                                maxPrice = Math.max(maxPrice, candle.high);
+                            }
+                        }
+
+                        if (minPrice !== Infinity && maxPrice !== -Infinity) {
+                            // 价格从上到下：maxPrice 在 Y=0，minPrice 在 Y=chartHeight
+                            const priceRange = maxPrice - minPrice;
+                            const pricePerPixel = priceRange / chartHeight;
+                            cursorPrice = maxPrice - (mouseY * pricePerPixel);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('计算光标价格失败，使用收盘价:', error);
+            }
+        }
 
         // 更新价格标记线和获利盘/套牢盘统计
-        chipManager.updatePriceLine(currentPrice, param.time);
+        chipManager.updatePriceLine(cursorPrice, param.time);
     });
 
     console.log('✅ 筹码峰联动已设置');
 }
 
+// ==================== 筹码峰设置 ====================
 /**
- * 计算全局筹码分布（所有K线数据的累积）
- * TODO: 等后端实现后，从 API 获取真实数据
+ * 从UI获取筹码设置
  */
-function calculateGlobalChipDistribution() {
-    // 临时模拟数据，用于测试前端 UI
-    // 后端实现后，改为: return state.chipData;
-
-    if (!state.stockData || !state.stockData.candlestick || state.stockData.candlestick.length === 0) {
-        console.error('calculateGlobalChipDistribution: 没有 K 线数据');
-        return null;
-    }
-
-    if (!state.stockData.volume || state.stockData.volume.length === 0) {
-        console.error('calculateGlobalChipDistribution: 没有成交量数据');
-        return null;
-    }
-
-    // 合并 K 线和成交量数据
-    const candles = state.stockData.candlestick;
-    const volumes = state.stockData.volume;
-
-    // 创建时间到成交量的映射
-    const volumeMap = new Map();
-    volumes.forEach(v => {
-        volumeMap.set(v.time, v.value);
-    });
-
-    // 计算价格范围
-    const prices = candles.flatMap(c => [c.high, c.low]);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const priceRange = maxPrice - minPrice;
-
-    if (priceRange === 0) {
-        console.error('calculateGlobalChipDistribution: 价格范围为 0');
-        return null;
-    }
-
-    // 创建价格档位
-    const numBins = 50; // 50 个价格档位
-    const binSize = priceRange / numBins;
-    const distribution = [];
-
-    // 遍历每个档位
-    for (let i = 0; i < numBins; i++) {
-        const price = minPrice + binSize * (i + 0.5);
-        let volume = 0;
-
-        // 累加所有在此价格区间内的成交量
-        candles.forEach(candle => {
-            // 如果 K 线的价格范围包含这个档位
-            if (candle.low <= price && price <= candle.high) {
-                // 获取该 K 线对应的成交量
-                const candleVolume = volumeMap.get(candle.time) || 0;
-
-                if (candleVolume > 0) {
-                    // 根据价格在 K 线中的位置，按比例分配成交量
-                    const priceSpan = candle.high - candle.low;
-                    if (priceSpan > 0) {
-                        const relativePosition = (price - candle.low) / priceSpan;
-                        // 使用正态分布模拟成交量在价格区间的分布
-                        const weight = Math.exp(-Math.pow((relativePosition - 0.5) * 4, 2));
-                        volume += candleVolume * weight;
-                    } else {
-                        // 如果高低价相同，全部分配到这个价格
-                        if (Math.abs(price - candle.close) < binSize / 2) {
-                            volume += candleVolume;
-                        }
-                    }
-                }
-            }
-        });
-
-        if (volume > 0) {
-            distribution.push({ price, volume });
-        }
-    }
-
-    console.log(`calculateGlobalChipDistribution: 生成了 ${distribution.length} 个价格档位`);
-
-    if (distribution.length === 0) {
-        console.error('calculateGlobalChipDistribution: distribution 为空');
-        return null;
-    }
-
-    // 识别峰值（成交量最大的几个点）
-    const sorted = [...distribution].sort((a, b) => b.volume - a.volume);
-    const peaks = [];
-
-    if (sorted.length > 0) {
-        peaks.push({ price: sorted[0].price, intensity: 'high' });
-    }
-    if (sorted.length > 1) {
-        peaks.push({ price: sorted[1].price, intensity: 'medium' });
-    }
+function getChipSettingsFromUI() {
+    const useAllHistory = document.getElementById('use-all-history')?.checked;
+    const lookbackValue = document.getElementById('lookback-days')?.value;
 
     return {
-        distribution: distribution,
-        peaks: peaks
+        lookbackDays: useAllHistory ? null : (lookbackValue ? parseInt(lookbackValue) : 90),
+        decayRate: parseFloat(document.getElementById('decay-rate')?.value || 0.05),
+        numBins: parseInt(document.getElementById('num-bins')?.value || 50),
+        algorithm: document.getElementById('decay-algorithm')?.value || 'cumulative'
     };
+}
+
+/**
+ * 设置筹码峰设置面板
+ */
+function setupChipSettings() {
+    const modal = document.getElementById('chip-settings-modal');
+    const settingsBtn = document.getElementById('chip-settings-btn');
+    const closeBtn = document.querySelector('.modal-close');
+    const applyBtn = document.getElementById('apply-settings-btn');
+    const resetBtn = document.getElementById('reset-settings-btn');
+    const decayRateSlider = document.getElementById('decay-rate');
+    const decayRateDisplay = document.getElementById('decay-rate-display');
+    const lookbackDaysInput = document.getElementById('lookback-days');
+    const useAllHistoryCheckbox = document.getElementById('use-all-history');
+
+    if (!modal || !settingsBtn) {
+        console.warn('筹码设置面板元素未找到');
+        return;
+    }
+
+    // 打开设置面板
+    settingsBtn.addEventListener('click', () => {
+        modal.classList.add('active');
+    });
+
+    // 关闭设置面板
+    const closeModal = () => {
+        modal.classList.remove('active');
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // 回溯天数复选框联动
+    useAllHistoryCheckbox.addEventListener('change', (e) => {
+        lookbackDaysInput.disabled = e.target.checked;
+        if (e.target.checked) {
+            lookbackDaysInput.style.opacity = '0.5';
+            lookbackDaysInput.style.cursor = 'not-allowed';
+        } else {
+            lookbackDaysInput.style.opacity = '1';
+            lookbackDaysInput.style.cursor = 'text';
+        }
+    });
+
+    // 衰减率滑块联动
+    decayRateSlider.addEventListener('input', (e) => {
+        decayRateDisplay.textContent = e.target.value;
+    });
+
+    // 应用设置
+    applyBtn.addEventListener('click', async () => {
+        try {
+            // 获取新设置
+            const newOptions = getChipSettingsFromUI();
+
+            // 更新计算器配置
+            chipCalculator.updateOptions(newOptions);
+
+            // 重新计算
+            utils.showLoading('正在重新计算筹码分布...');
+
+            chipCalculator.precomputeAll((current, total) => {
+                const progress = (current / total * 100).toFixed(0);
+                if (current % 500 === 0) {
+                    console.log(`重新计算进度: ${progress}%`);
+                }
+            });
+
+            utils.hideLoading();
+
+            // 更新显示
+            const lastCandle = state.stockData.candlestick[state.stockData.candlestick.length - 1];
+            const lastChipData = chipCalculator.get(lastCandle.time);
+            if (lastChipData) {
+                chipManager.updateGlobal(lastChipData);
+            }
+
+            console.log('✓ 筹码分布已更新');
+            closeModal();
+
+        } catch (error) {
+            console.error('应用设置失败:', error);
+            utils.hideLoading();
+            alert('应用设置失败: ' + error.message);
+        }
+    });
+
+    // 恢复默认设置
+    resetBtn.addEventListener('click', () => {
+        lookbackDaysInput.value = '90';
+        useAllHistoryCheckbox.checked = false;
+        lookbackDaysInput.disabled = false;
+        lookbackDaysInput.style.opacity = '1';
+        lookbackDaysInput.style.cursor = 'text';
+        document.getElementById('decay-algorithm').value = 'cumulative';
+        document.getElementById('decay-rate').value = '0.05';
+        decayRateDisplay.textContent = '0.05';
+        document.getElementById('num-bins').value = '50';
+    });
+
+    console.log('✓ 筹码设置面板已初始化');
 }
 
 // ==================== 应用启动 ====================

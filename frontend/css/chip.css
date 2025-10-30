@@ -6,27 +6,28 @@
 /* ==================== 布局 ==================== */
 .chart-row {
     display: flex;
-    gap: 15px;
-    height: 600px;
-    margin-bottom: 20px;
+    gap: 0;
+    align-items: stretch;
+    width: 100%;
+    height: 100%;
+    flex: 1;
 }
 
 .chart-main {
-    flex: 7;
+    flex: 1;
     background: #1e222d;
-    border-radius: 8px;
-    min-width: 0; /* 防止 flex 溢出 */
+    min-width: 0;
+    height: 100%;
 }
 
 .chip-panel {
-    flex: 3;
+    width: 320px;
+    height: 100%;
     background: #1e222d;
-    border-radius: 8px;
     padding: 20px;
     display: flex;
     flex-direction: column;
-    min-width: 280px;
-    max-width: 400px;
+    flex-shrink: 0;
 }
 
 /* ==================== 头部 ==================== */
@@ -131,41 +132,6 @@
     text-shadow: 0 0 10px rgba(239, 83, 80, 0.3);
 }
 
-/* ==================== 响应式 ==================== */
-@media (max-width: 1400px) {
-    .chart-row {
-        height: 500px;
-    }
-
-    .chip-panel {
-        min-width: 250px;
-        padding: 15px;
-    }
-
-    .chip-header h3 {
-        font-size: 14px;
-    }
-
-    .stat-value {
-        font-size: 14px;
-    }
-}
-
-@media (max-width: 1024px) {
-    .chart-row {
-        flex-direction: column;
-        height: auto;
-    }
-
-    .chart-main {
-        height: 500px;
-    }
-
-    .chip-panel {
-        max-width: 100%;
-        height: 400px;
-    }
-}
 
 /* ==================== 动画效果 ==================== */
 @keyframes fadeIn {
@@ -242,4 +208,249 @@
 
 .legend-color.peak {
     background: linear-gradient(90deg, rgba(255, 107, 107, 0.5), rgba(255, 107, 107, 1));
+}
+
+
+/* ==================== 设置按钮 ==================== */
+.chip-settings-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    background: #2962FF;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.chip-settings-btn:hover {
+    background: #1e4fd9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(41, 98, 255, 0.3);
+}
+
+/* ==================== 设置面板（模态框）==================== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+.modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: #1e222d;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid #2a2e39;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #d1d4dc;
+}
+
+.modal-close {
+    font-size: 28px;
+    color: #787b86;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: #d1d4dc;
+}
+
+.modal-body {
+    padding: 25px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: #131722;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: #2a2e39;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: #363a45;
+}
+
+.modal-footer {
+    padding: 20px 25px;
+    border-top: 1px solid #2a2e39;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.setting-group {
+    margin-bottom: 25px;
+}
+
+.setting-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #d1d4dc;
+    margin-bottom: 10px;
+}
+
+.setting-select,
+.setting-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: #131722;
+    border: 1px solid #2a2e39;
+    border-radius: 6px;
+    color: #d1d4dc;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.setting-select:hover,
+.setting-input:hover {
+    border-color: #2962FF;
+}
+
+.setting-select:focus,
+.setting-input:focus {
+    outline: none;
+    border-color: #2962FF;
+    box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1);
+}
+
+.setting-input:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* 移除 number input 的上下箭头 */
+.setting-input[type="number"]::-webkit-inner-spin-button,
+.setting-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.setting-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.setting-slider {
+    width: 100%;
+    height: 6px;
+    background: #2a2e39;
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.setting-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #2962FF;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.setting-slider::-webkit-slider-thumb:hover {
+    background: #1e4fd9;
+    transform: scale(1.2);
+}
+
+.setting-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #2962FF;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.setting-slider::-moz-range-thumb:hover {
+    background: #1e4fd9;
+    transform: scale(1.2);
+}
+
+.setting-desc {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #787b86;
+    line-height: 1.4;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #2962FF;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1e4fd9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(41, 98, 255, 0.3);
+}
+
+.btn-secondary {
+    background: #2a2e39;
+    color: #d1d4dc;
+}
+
+.btn-secondary:hover {
+    background: #363a45;
 }

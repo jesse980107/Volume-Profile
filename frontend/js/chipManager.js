@@ -152,11 +152,24 @@ class ChipManager {
             };
         });
 
+        // 构建 Y 轴配置
+        const yAxisConfig = {
+            type: 'category',
+            data: prices,
+            position: 'right',
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: '#787b86',
+                fontSize: 11,
+                formatter: (value) => '¥' + value
+            },
+            splitLine: { show: false }
+        };
+
         // 更新图表
         this.chart.setOption({
-            yAxis: {
-                data: prices
-            },
+            yAxis: yAxisConfig,
             series: [{
                 data: chartData
             }]
@@ -169,6 +182,7 @@ class ChipManager {
         // 更新统计信息（不显示当前价格相关的）
         this.updateGlobalStats(chipData, totalVolume);
     }
+
 
     /**
      * 更新价格标记线（鼠标悬停时调用）
@@ -203,8 +217,43 @@ class ChipManager {
             lossEl.textContent = `${lossRatio.toFixed(1)}%`;
         }
 
-        // TODO: 可以在图表上画一条横线标记当前价格
-        // 需要使用 ECharts 的 markLine 功能
+        // 在图表上画一条横线标记当前价格
+        this.drawPriceLine(currentPrice);
+    }
+
+    /**
+     * 绘制价格标记线
+     * @param {number} price - 价格值
+     */
+    drawPriceLine(price) {
+        if (!this.chart) return;
+
+        this.chart.setOption({
+            series: [{
+                markLine: {
+                    silent: true,
+                    symbol: 'none',
+                    lineStyle: {
+                        color: '#FFA500',
+                        width: 2,
+                        type: 'solid'
+                    },
+                    label: {
+                        show: true,
+                        position: 'end',
+                        formatter: '¥{c}',
+                        color: '#FFA500',
+                        fontSize: 11,
+                        fontWeight: 'bold'
+                    },
+                    data: [
+                        {
+                            yAxis: price.toFixed(2)
+                        }
+                    ]
+                }
+            }]
+        });
     }
 
     /**
@@ -224,6 +273,17 @@ class ChipManager {
         const lossEl = document.getElementById('loss-ratio');
         if (lossEl) {
             lossEl.textContent = '--';
+        }
+
+        // 清除图表上的价格线
+        if (this.chart) {
+            this.chart.setOption({
+                series: [{
+                    markLine: {
+                        data: []
+                    }
+                }]
+            });
         }
     }
 
