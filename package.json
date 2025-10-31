@@ -1,0 +1,32 @@
+{
+  "name": "volume-profile",
+  "version": "1.0.0",
+  "description": "> 基于 **FastAPI + Lightweight Charts** 构建的现代化股票分析系统",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jesse980107/Volume-Profile.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jesse980107/Volume-Profile/issues"
+  },
+  "homepage": "https://github.com/jesse980107/Volume-Profile#readme",
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  },
+  "dependencies": {
+    "echarts": "^6.0.0",
+    "lightweight-charts": "^5.0.9"
+  }
+}

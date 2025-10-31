@@ -5,15 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📈 股票分析系统 - Lightweight Charts</title>
 
-    <!-- Lightweight Charts v5.x CDN -->
-    <script src="https://unpkg.com/lightweight-charts@latest/dist/lightweight-charts.standalone.production.js"></script>
-
-    <!-- ECharts for 筹码峰 -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-
     <!-- 自定义样式 -->
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link rel="stylesheet" href="/static/css/chip.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/chip.css">
 </head>
 <body>
     <!-- 图表容器 -->
@@ -152,19 +146,7 @@
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
 
-    <!-- 筹码计算器 -->
-    <script src="/static/js/chipCalculator.js"></script>
-
-    <!-- 筹码峰管理器 -->
-    <script src="/static/js/chipManager.js"></script>
-
-    <!-- OHLCV Bar 组件 -->
-    <script src="/static/js/ohlcvBar.js"></script>
-
-    <!-- Indicator 选择器组件 -->
-    <script src="/static/js/indicatorSelector.js"></script>
-
-    <!-- 主应用脚本 -->
-    <script src="/static/js/app.js"></script>
+    <!-- Vite 入口（TypeScript）-->
+    <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

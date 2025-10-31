@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    /* 基本选项 */
+    "target": "ES2020",                          // 编译目标：现代浏览器
+    "useDefineForClassFields": true,
+    "module": "ESNext",                          // 模块系统：ES Modules
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],   // 包含的库
+    "skipLibCheck": true,                        // 跳过 .d.ts 文件检查（加快编译）
+
+    /* 模块解析 */
+    "moduleResolution": "bundler",               // Vite 使用 bundler 模式
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,                   // 允许导入 JSON
+    "isolatedModules": true,                     // 每个文件作为独立模块
+    "noEmit": true,                              // 不生成输出文件（由 Vite 处理）
+
+    /* 类型检查 */
+    "strict": true,                              // 启用所有严格检查
+    "noUnusedLocals": true,                      // 检查未使用的局部变量
+    "noUnusedParameters": true,                  // 检查未使用的参数
+    "noFallthroughCasesInSwitch": true,         // 检查 switch 的 fallthrough
+
+    /* 路径别名（可选，方便导入） */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./frontend/src/*"]
+    }
+  },
+  "include": [
+    "frontend/src/**/*.ts",
+    "frontend/src/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "backend"
+  ]
+}
