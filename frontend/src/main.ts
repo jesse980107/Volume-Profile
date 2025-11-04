@@ -25,6 +25,7 @@ import { chipCalculator } from './services/chipCalculator';
 import { chipManager } from './services/chipManager';
 import { ohlcvBar } from './components/ohlcvBar';
 import { indicatorSelector } from './components/indicatorSelector';
+import { timeframeSelector } from './components/timeframeSelector';
 
 // ==================== 全局状态 ====================
 const state: AppState = {
@@ -468,12 +469,6 @@ async function switchTimeframe(interval: TimeframeType): Promise<void> {
       state.chart.timeScale().fitContent();
     }
 
-    // 8. 更新按钮状态
-    document.querySelectorAll('.timeframe-btn').forEach((btn) => {
-      btn.classList.remove('active');
-    });
-    document.querySelector(`[data-interval="${interval}"]`)?.classList.add('active');
-
     console.log(`✅ 时间间隔切换完成: ${interval}`);
   } catch (error) {
     console.error('❌ 时间间隔切换失败:', error);
@@ -484,6 +479,13 @@ async function switchTimeframe(interval: TimeframeType): Promise<void> {
 // ==================== 控制面板事件 ====================
 function setupControls(): void {
   console.log('⚙️ 设置控制面板...');
+
+  // 初始化 timeframe 选择器组件
+  timeframeSelector.init('main-chart', 'prepend');
+  timeframeSelector.onChange((interval) => {
+    switchTimeframe(interval);
+  });
+  console.log('✅ Timeframe 选择器组件已设置');
 
   // 初始化 indicator 选择器组件
   indicatorSelector.init('main-chart');
@@ -577,18 +579,6 @@ function setupControls(): void {
   });
 
   console.log('✅ Indicator 选择器组件已设置');
-
-  // 时间间隔切换按钮事件
-  const timeframeButtons = document.querySelectorAll('.timeframe-btn');
-  timeframeButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const interval = (btn as HTMLButtonElement).dataset.interval as TimeframeType;
-      if (interval && interval !== state.currentInterval) {
-        switchTimeframe(interval);
-      }
-    });
-  });
-  console.log('✅ 时间间隔按钮已设置');
 
   console.log('✅ 控制面板设置完成');
 }
