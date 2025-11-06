@@ -54,16 +54,7 @@ export interface AppState {
   currentInterval: TimeframeType;
   panes: ChartPanes;
   series: ChartSeries;
-  visibleIndicators: {
-    sma5: boolean;
-    sma10: boolean;
-    sma20: boolean;
-    sma60: boolean;
-    macd: boolean;
-    kdj: boolean;
-    rsi: boolean;
-    boll: boolean;
-  };
+  // visibleIndicators 已移除 - 现在由 indicatorConfigManager 管理
 }
 
 /**

@@ -24,8 +24,12 @@ import type {
 import { chipCalculator } from './services/chipCalculator';
 import { chipManager } from './services/chipManager';
 import { ohlcvBar } from './components/ohlcvBar';
-import { indicatorSelector } from './components/indicatorSelector';
 import { timeframeSelector } from './components/timeframeSelector';
+import { indicatorButton } from './components/indicatorButton';
+import { indicatorModal } from './components/indicatorModal';
+import { indicatorBarList } from './components/indicatorBarList';
+import { indicatorSettingsPanel } from './components/indicatorSettingsPanel';
+import { indicatorConfigManager } from './managers/indicatorConfigManager';
 
 // ==================== 全局状态 ====================
 const state: AppState = {
@@ -58,16 +62,7 @@ const state: AppState = {
     bollMiddle: null,
     bollLower: null,
   },
-  visibleIndicators: {
-    sma5: true,
-    sma10: true,
-    sma20: true,
-    sma60: false,
-    macd: false,
-    kdj: false,
-    rsi: false,
-    boll: false,
-  },
+  // visibleIndicators 已移除 - 现在由 indicatorConfigManager 管理
 };
 
 // ==================== 配置 ====================
@@ -92,6 +87,10 @@ const colors = {
   kdj: { k: '#2962FF', d: '#FF6D00', j: '#00C853' },
   rsi: '#9C27B0',
 };
+
+// ==================== 旧代码已删除 ====================
+// localStorage 参数管理已迁移到 indicatorConfigManager
+// 所有配置统一从 indicators.config.json 读取和保存
 
 // ==================== 工具函数 ====================
 const utils = {
@@ -133,11 +132,26 @@ const utils = {
   },
 };
 
+// ==================== 指标参数构建 ====================
+/**
+ * 构建指标查询字符串 - 现在使用配置管理器
+ * 格式: ma:5,20,60;kdj:9-3-3;macd:12-26-9;rsi:14;boll:20-2.0
+ */
+function buildIndicatorsQueryString(): string {
+  return indicatorConfigManager.buildQueryString();
+}
+
 // ==================== API 调用 ====================
-async function fetchStockData(interval: TimeframeType = 'daily'): Promise<StockDataResponse> {
+async function fetchStockData(interval: TimeframeType = 'daily', indicatorsQuery: string = ''): Promise<StockDataResponse> {
   utils.showLoading();
   try {
-    const response = await fetch(`${config.apiUrl}/${config.symbol}?interval=${interval}`);
+    let url = `${config.apiUrl}/${config.symbol}?interval=${interval}`;
+    if (indicatorsQuery) {
+      url += `&indicators=${encodeURIComponent(indicatorsQuery)}`;
+    }
+
+    console.log(`📡 请求数据: ${url}`);
+    const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch data');
 
     const data = await response.json();
@@ -226,62 +240,80 @@ function renderMainChart(data: StockDataResponse): void {
   }) as any;
   state.series.candle.setData(data.candlestick);
 
-  // 添加均线到主 pane
-  state.series.sma5 = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.sma5,
-    lineWidth: 2,
-    title: 'MA5',
-  }) as any;
-  state.series.sma5.setData(data.sma5);
+  // 添加均线到主 pane - 从配置管理器获取
+  const { periods: maPeriods, colors: maColors } = indicatorConfigManager.getMaRenderInfo();
 
-  state.series.sma10 = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.sma10,
-    lineWidth: 2,
-    title: 'MA10',
-  }) as any;
-  state.series.sma10.setData(data.sma10);
+  // 根据后端返回的数据动态渲染 MA 线
+  // 后端返回的字段名：sma5, sma10, sma20, sma60（对应周期 5, 10, 20, 60）
+  const maDataMap: Record<number, any> = {
+    5: data.sma5,
+    10: data.sma10,
+    20: data.sma20,
+    60: data.sma60,
+  };
 
-  state.series.sma20 = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.sma20,
-    lineWidth: 2,
-    title: 'MA20',
-  }) as any;
-  state.series.sma20.setData(data.sma20);
+  // 渲染配置的 MA 线
+  for (let i = 0; i < maPeriods.length; i++) {
+    const period = maPeriods[i];
+    const color = maColors[i];
+    const maData = maDataMap[period];
 
-  state.series.sma60 = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.sma60,
-    lineWidth: 2,
-    title: 'MA60',
-    visible: false,
-  }) as any;
-  state.series.sma60.setData(data.sma60);
+    if (!maData) {
+      console.warn(`⚠️ MA${period} 数据不存在，跳过渲染`);
+      continue;
+    }
 
-  // 布林带 (默认隐藏)
-  state.series.bollUpper = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.bollUpper,
-    lineWidth: 1,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
-    title: 'BOLL Upper',
-    visible: false,
-  }) as any;
-  state.series.bollUpper.setData(data.boll.upper);
+    // 根据索引分配到对应的 series
+    const series = state.chart.addSeries(LightweightCharts.LineSeries, {
+      color: color,
+      lineWidth: 2,
+      title: `MA${period}`,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    }) as any;
 
-  state.series.bollMiddle = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.bollMiddle,
-    lineWidth: 1,
-    title: 'BOLL Middle',
-    visible: false,
-  }) as any;
-  state.series.bollMiddle.setData(data.boll.middle);
+    series.setData(maData);
 
-  state.series.bollLower = state.chart.addSeries(LightweightCharts.LineSeries, {
-    color: colors.bollLower,
-    lineWidth: 1,
-    lineStyle: LightweightCharts.LineStyle.Dashed,
-    title: 'BOLL Lower',
-    visible: false,
-  }) as any;
-  state.series.bollLower.setData(data.boll.lower);
+    // 保存到 state（使用第一个可用的 slot）
+    if (i === 0) state.series.sma5 = series;
+    else if (i === 1) state.series.sma10 = series;
+    else if (i === 2) state.series.sma20 = series;
+  }
+
+  // 布林带 (默认隐藏) - 检查数据是否存在
+  if (data.boll && data.boll.upper) {
+    state.series.bollUpper = state.chart.addSeries(LightweightCharts.LineSeries, {
+      color: colors.bollUpper,
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      title: 'BOLL Upper',
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    }) as any;
+    state.series.bollUpper.setData(data.boll.upper);
+
+    state.series.bollMiddle = state.chart.addSeries(LightweightCharts.LineSeries, {
+      color: colors.bollMiddle,
+      lineWidth: 1,
+      title: 'BOLL Middle',
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    }) as any;
+    state.series.bollMiddle.setData(data.boll.middle);
+
+    state.series.bollLower = state.chart.addSeries(LightweightCharts.LineSeries, {
+      color: colors.bollLower,
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      title: 'BOLL Lower',
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    }) as any;
+    state.series.bollLower.setData(data.boll.lower);
+  }
 
   console.log('✅ 主图表渲染完成');
 }
@@ -409,8 +441,11 @@ async function switchTimeframe(interval: TimeframeType): Promise<void> {
   console.log(`🔄 切换时间间隔: ${interval}`);
 
   try {
-    // 1. 获取新数据
-    const data = await fetchStockData(interval);
+    // 1. 构建 indicators query string（使用保存的参数）
+    const indicatorsQuery = buildIndicatorsQueryString();
+
+    // 2. 获取新数据
+    const data = await fetchStockData(interval, indicatorsQuery);
 
     // 2. 更新所有系列的数据
     if (state.series.candle) state.series.candle.setData(data.candlestick);
@@ -480,43 +515,94 @@ async function switchTimeframe(interval: TimeframeType): Promise<void> {
 function setupControls(): void {
   console.log('⚙️ 设置控制面板...');
 
-  // 初始化 timeframe 选择器组件
-  timeframeSelector.init('main-chart', 'prepend');
+  // 1. 初始化 Timeframe Selector（下拉式）
+  timeframeSelector.init('main-chart');
   timeframeSelector.onChange((interval) => {
     switchTimeframe(interval);
   });
-  console.log('✅ Timeframe 选择器组件已设置');
+  console.log('✅ Timeframe Selector 已设置');
 
-  // 初始化 indicator 选择器组件
-  indicatorSelector.init('main-chart');
+  // 2. 初始化 Indicator Button
+  indicatorButton.init('main-chart');
+  indicatorButton.onClick(() => {
+    indicatorModal.open();
+  });
+  console.log('✅ Indicator Button 已设置');
 
-  // 均线显示控制
-  indicatorSelector.on('show-sma5', (checked) => {
-    state.series.sma5?.applyOptions({ visible: checked });
+  // 3. 初始化 Indicator Modal
+  indicatorModal.init();
+  indicatorModal.onAdd((indicatorId) => {
+    handleAddIndicator(indicatorId);
+  });
+  console.log('✅ Indicator Modal 已设置');
+
+  // 4. 初始化 Indicator Bar List
+  indicatorBarList.init('main-chart');
+
+  // 监听可见性变化
+  indicatorBarList.onVisibilityChange((id, visible) => {
+    handleIndicatorVisibility(id, visible);
   });
 
-  indicatorSelector.on('show-sma10', (checked) => {
-    state.series.sma10?.applyOptions({ visible: checked });
+  // 监听删除事件
+  indicatorBarList.onRemove((id) => {
+    handleRemoveIndicator(id);
   });
 
-  indicatorSelector.on('show-sma20', (checked) => {
-    state.series.sma20?.applyOptions({ visible: checked });
+  // 监听设置按钮点击
+  indicatorBarList.onSettings((id) => {
+    handleIndicatorSettings(id);
   });
+  console.log('✅ Indicator Bar List 已设置');
 
-  indicatorSelector.on('show-sma60', (checked) => {
-    state.series.sma60?.applyOptions({ visible: checked });
+  // 5. 初始化 Indicator Settings Panel
+  indicatorSettingsPanel.onSave((indicatorId, parameters) => {
+    handleIndicatorParametersSave(indicatorId, parameters);
   });
+  console.log('✅ Indicator Settings Panel 已设置');
 
-  // 布林带显示控制
-  indicatorSelector.on('show-boll', (checked) => {
-    state.series.bollUpper?.applyOptions({ visible: checked });
-    state.series.bollMiddle?.applyOptions({ visible: checked });
-    state.series.bollLower?.applyOptions({ visible: checked });
-  });
+  console.log('✅ 控制面板设置完成');
+}
 
-  // MACD 显示控制
-  indicatorSelector.on('show-macd', (checked) => {
-    if (checked) {
+// ==================== 指标管理 ====================
+/**
+ * 添加指标
+ */
+function handleAddIndicator(indicatorId: string): void {
+  // 检查是否已添加
+  if (indicatorBarList.hasIndicator(indicatorId)) {
+    console.log(`⚠️ 指标 ${indicatorId} 已存在`);
+    return;
+  }
+
+  console.log(`➕ 添加指标: ${indicatorId}`);
+
+  // 获取指标标签
+  const labelMap: Record<string, string> = {
+    'show-ma': 'MA20',
+    'show-boll': 'BOLL',
+    'show-macd': 'MACD',
+    'show-kdj': 'KDJ',
+    'show-rsi': 'RSI',
+  };
+
+  const label = labelMap[indicatorId] || indicatorId;
+
+  // 添加到 bar list
+  indicatorBarList.addIndicator(indicatorId, label, '--');
+
+  // 渲染对应的图表
+  switch (indicatorId) {
+    case 'show-ma':
+      // 默认显示 MA20
+      state.series.sma20?.applyOptions({ visible: true });
+      break;
+    case 'show-boll':
+      state.series.bollUpper?.applyOptions({ visible: true });
+      state.series.bollMiddle?.applyOptions({ visible: true });
+      state.series.bollLower?.applyOptions({ visible: true });
+      break;
+    case 'show-macd':
       if (!state.panes.macd && state.chart) {
         console.log('📊 创建 MACD pane...');
         state.panes.macd = state.chart.addPane();
@@ -524,7 +610,80 @@ function setupControls(): void {
           renderMACDChart(state.stockData);
         }
       }
-    } else {
+      break;
+    case 'show-kdj':
+      if (!state.panes.kdj && state.chart) {
+        console.log('📊 创建 KDJ pane...');
+        state.panes.kdj = state.chart.addPane();
+        if (state.stockData) {
+          renderKDJChart(state.stockData);
+        }
+      }
+      break;
+    case 'show-rsi':
+      if (!state.panes.rsi && state.chart) {
+        console.log('📊 创建 RSI pane...');
+        state.panes.rsi = state.chart.addPane();
+        if (state.stockData) {
+          renderRSIChart(state.stockData);
+        }
+      }
+      break;
+  }
+
+  // 添加完成后，立即更新最新值
+  updateIndicatorBarValuesLatest();
+}
+
+/**
+ * 切换指标可见性
+ */
+function handleIndicatorVisibility(indicatorId: string, visible: boolean): void {
+  console.log(`👁 切换指标可见性: ${indicatorId} -> ${visible}`);
+
+  switch (indicatorId) {
+    case 'show-ma':
+      // 切换 MA20 的可见性
+      state.series.sma20?.applyOptions({ visible });
+      break;
+    case 'show-boll':
+      state.series.bollUpper?.applyOptions({ visible });
+      state.series.bollMiddle?.applyOptions({ visible });
+      state.series.bollLower?.applyOptions({ visible });
+      break;
+    case 'show-macd':
+      state.series.macd?.applyOptions({ visible });
+      state.series.macdSignal?.applyOptions({ visible });
+      state.series.macdHistogram?.applyOptions({ visible });
+      break;
+    case 'show-kdj':
+      state.series.kdjK?.applyOptions({ visible });
+      state.series.kdjD?.applyOptions({ visible });
+      state.series.kdjJ?.applyOptions({ visible });
+      break;
+    case 'show-rsi':
+      state.series.rsi?.applyOptions({ visible });
+      break;
+  }
+}
+
+/**
+ * 移除指标
+ */
+function handleRemoveIndicator(indicatorId: string): void {
+  console.log(`🗑️ 移除指标: ${indicatorId}`);
+
+  switch (indicatorId) {
+    case 'show-ma':
+      // 隐藏 MA20
+      state.series.sma20?.applyOptions({ visible: false });
+      break;
+    case 'show-boll':
+      state.series.bollUpper?.applyOptions({ visible: false });
+      state.series.bollMiddle?.applyOptions({ visible: false });
+      state.series.bollLower?.applyOptions({ visible: false });
+      break;
+    case 'show-macd':
       if (state.panes.macd && state.chart) {
         const paneIndex = state.chart.panes().indexOf(state.panes.macd);
         state.chart.removePane(paneIndex);
@@ -533,20 +692,8 @@ function setupControls(): void {
         state.series.macdSignal = null;
         state.series.macdHistogram = null;
       }
-    }
-  });
-
-  // KDJ 显示控制
-  indicatorSelector.on('show-kdj', (checked) => {
-    if (checked) {
-      if (!state.panes.kdj && state.chart) {
-        console.log('📊 创建 KDJ pane...');
-        state.panes.kdj = state.chart.addPane();
-        if (state.stockData) {
-          renderKDJChart(state.stockData);
-        }
-      }
-    } else {
+      break;
+    case 'show-kdj':
       if (state.panes.kdj && state.chart) {
         const paneIndex = state.chart.panes().indexOf(state.panes.kdj);
         state.chart.removePane(paneIndex);
@@ -555,32 +702,254 @@ function setupControls(): void {
         state.series.kdjD = null;
         state.series.kdjJ = null;
       }
-    }
-  });
-
-  // RSI 显示控制
-  indicatorSelector.on('show-rsi', (checked) => {
-    if (checked) {
-      if (!state.panes.rsi && state.chart) {
-        console.log('📊 创建 RSI pane...');
-        state.panes.rsi = state.chart.addPane();
-        if (state.stockData) {
-          renderRSIChart(state.stockData);
-        }
-      }
-    } else {
+      break;
+    case 'show-rsi':
       if (state.panes.rsi && state.chart) {
         const paneIndex = state.chart.panes().indexOf(state.panes.rsi);
         state.chart.removePane(paneIndex);
         state.panes.rsi = null;
         state.series.rsi = null;
       }
+      break;
+  }
+}
+
+/**
+ * 只重新计算指标并更新图表（不重新加载原始数据）
+ */
+async function recalculateIndicators(): Promise<void> {
+  console.log('🔄 重新计算指标...');
+
+  try {
+    // 1. 构建 indicators query string
+    const indicatorsQuery = buildIndicatorsQueryString();
+    if (!indicatorsQuery) {
+      console.warn('没有需要计算的指标');
+      return;
     }
-  });
 
-  console.log('✅ Indicator 选择器组件已设置');
+    // 2. 调用轻量级 API（只返回指标数据）
+    utils.showLoading('正在重新计算指标...');
+    const url = `/api/v1/stock/${config.symbol}/recalculate-indicators?interval=${state.currentInterval}&indicators=${encodeURIComponent(indicatorsQuery)}`;
+    console.log(`📡 请求重新计算指标: ${url}`);
 
-  console.log('✅ 控制面板设置完成');
+    const response = await fetch(url, { method: 'POST' });
+    if (!response.ok) throw new Error('Failed to recalculate indicators');
+
+    const data = await response.json();
+    console.log('✅ 指标计算完成:', data);
+
+    // 3. 只更新指标系列的数据（不更新 candlestick 和 volume）
+
+    // 更新 MA 系列 - 从配置管理器获取颜色
+    const { periods: maPeriods, colors: maColors } = indicatorConfigManager.getMaRenderInfo();
+
+    // 后端返回的数据映射
+    const maDataMap: Record<number, any> = {
+      5: data.sma5,
+      10: data.sma10,
+      20: data.sma20,
+      60: data.sma60,
+    };
+
+    // 更新每条配置的 MA 线
+    const seriesSlots = [state.series.sma5, state.series.sma10, state.series.sma20];
+    for (let i = 0; i < maPeriods.length; i++) {
+      const period = maPeriods[i];
+      const color = maColors[i];
+      const maData = maDataMap[period];
+      const series = seriesSlots[i];
+
+      if (maData && series) {
+        series.setData(maData);
+        series.applyOptions({
+          color: color,
+          title: `MA${period}`,
+        });
+      }
+    }
+
+    // 更新布林带系列
+    if (data.boll && state.series.bollUpper) {
+      state.series.bollUpper.setData(data.boll.upper);
+      state.series.bollMiddle.setData(data.boll.middle);
+      state.series.bollLower.setData(data.boll.lower);
+    }
+
+    // 更新 MACD 系列（如果已创建）
+    if (state.panes.macd && data.macd && state.series.macd) {
+      state.series.macd.setData(data.macd.macd);
+      if (state.series.macdSignal) state.series.macdSignal.setData(data.macd.signal);
+      if (state.series.macdHistogram) {
+        const histData = data.macd.histogram.map((item: any) => ({
+          time: item.time,
+          value: item.value,
+          color: item.value >= 0 ? colors.up : colors.down,
+        }));
+        state.series.macdHistogram.setData(histData);
+      }
+    }
+
+    // 更新 KDJ 系列（如果已创建）
+    if (state.panes.kdj && data.kdj && state.series.kdjK) {
+      state.series.kdjK.setData(data.kdj.k);
+      if (state.series.kdjD) state.series.kdjD.setData(data.kdj.d);
+      if (state.series.kdjJ) state.series.kdjJ.setData(data.kdj.j);
+    }
+
+    // 更新 RSI 系列（如果已创建）
+    if (state.panes.rsi && data.rsi && state.series.rsi) {
+      state.series.rsi.setData(data.rsi);
+    }
+
+    // 更新指标 bar 显示的最新值
+    updateIndicatorBarValuesLatest();
+
+    utils.hideLoading();
+    console.log('✅ 指标更新完成');
+  } catch (error) {
+    console.error('❌ 重新计算指标失败:', error);
+    utils.hideLoading();
+    alert(`重新计算指标失败: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * 重新加载数据并更新所有图表（用于时间间隔切换）
+ */
+async function reloadDataAndUpdateCharts(): Promise<void> {
+  console.log('🔄 重新加载数据并更新图表...');
+
+  try {
+    // 1. 构建 indicators query string
+    const indicatorsQuery = buildIndicatorsQueryString();
+
+    // 2. 重新获取数据
+    const data = await fetchStockData(state.currentInterval, indicatorsQuery);
+
+    // 3. 更新所有系列的数据
+    if (state.series.candle) state.series.candle.setData(data.candlestick);
+    if (state.series.volume) state.series.volume.setData(data.volume);
+
+    // 更新 MA 系列
+    if (data.sma5 && state.series.sma5) state.series.sma5.setData(data.sma5);
+    if (data.sma10 && state.series.sma10) state.series.sma10.setData(data.sma10);
+    if (data.sma20 && state.series.sma20) state.series.sma20.setData(data.sma20);
+    if (data.sma60 && state.series.sma60) state.series.sma60.setData(data.sma60);
+
+    // 更新布林带系列
+    if (data.boll && state.series.bollUpper) {
+      state.series.bollUpper.setData(data.boll.upper);
+      state.series.bollMiddle.setData(data.boll.middle);
+      state.series.bollLower.setData(data.boll.lower);
+    }
+
+    // 更新 MACD 系列（如果已创建）
+    if (state.panes.macd && data.macd && state.series.macd) {
+      state.series.macd.setData(data.macd.macd);
+      if (state.series.macdSignal) state.series.macdSignal.setData(data.macd.signal);
+      if (state.series.macdHistogram) {
+        const histData = data.macd.histogram.map((item) => ({
+          time: item.time,
+          value: item.value,
+          color: item.value >= 0 ? colors.up : colors.down,
+        }));
+        state.series.macdHistogram.setData(histData);
+      }
+    }
+
+    // 更新 KDJ 系列（如果已创建）
+    if (state.panes.kdj && data.kdj && state.series.kdjK) {
+      state.series.kdjK.setData(data.kdj.k);
+      if (state.series.kdjD) state.series.kdjD.setData(data.kdj.d);
+      if (state.series.kdjJ) state.series.kdjJ.setData(data.kdj.j);
+    }
+
+    // 更新 RSI 系列（如果已创建）
+    if (state.panes.rsi && data.rsi && state.series.rsi) {
+      state.series.rsi.setData(data.rsi);
+    }
+
+    // 更新筹码分布
+    chipCalculator.initialize(data.candlestick, data.volume);
+    const options = getChipSettingsFromUI();
+    chipCalculator.updateOptions(options);
+
+    utils.showLoading('正在计算筹码分布...');
+    chipCalculator.precomputeAll();
+    utils.hideLoading();
+
+    const lastCandle = data.candlestick[data.candlestick.length - 1];
+    const lastChipData = chipCalculator.get(lastCandle.time);
+    if (lastChipData) {
+      chipManager.updateGlobal(lastChipData);
+    }
+
+    // 更新指标 bar 显示的最新值
+    updateIndicatorBarValuesLatest();
+
+    // 调整可见范围
+    if (state.chart) {
+      state.chart.timeScale().fitContent();
+    }
+
+    console.log('✅ 数据重新加载完成，图表已更新');
+  } catch (error) {
+    console.error('❌ 重新加载数据失败:', error);
+    alert(`重新加载数据失败: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * 打开指标设置面板
+ */
+async function handleIndicatorSettings(indicatorId: string): Promise<void> {
+  console.log(`⚙️ 打开指标设置: ${indicatorId}`);
+
+  // 映射前端 ID 到后端 ID
+  const indicatorMap: Record<string, string> = {
+    'show-ma': 'ma',
+    'show-boll': 'boll',
+    'show-macd': 'macd',
+    'show-kdj': 'kdj',
+    'show-rsi': 'rsi',
+  };
+
+  const backendId = indicatorMap[indicatorId];
+  if (!backendId) {
+    console.warn(`未知的指标 ID: ${indicatorId}`);
+    return;
+  }
+
+  // 从配置管理器加载当前参数
+  const currentParams = indicatorConfigManager.getIndicatorParams(backendId);
+
+  // 打开设置面板
+  await indicatorSettingsPanel.open(backendId, currentParams);
+}
+
+/**
+ * 保存指标参数并重新计算指标
+ * 直接保存到配置文件（通过后端 API）
+ */
+async function handleIndicatorParametersSave(
+  indicatorId: string,
+  parameters: Record<string, any>
+): Promise<void> {
+  console.log(`💾 保存指标参数: ${indicatorId}`, parameters);
+
+  try {
+    // 1. 保存参数到配置文件（内存 + 持久化）
+    await indicatorConfigManager.updateIndicatorParams(indicatorId, parameters);
+
+    // 2. 只重新计算指标（不重新加载原始数据）
+    await recalculateIndicators();
+
+    console.log('✅ 指标参数保存成功，图表已更新');
+  } catch (error) {
+    console.error('❌ 保存指标参数失败:', error);
+    alert(`保存指标参数失败: ${(error as Error).message}`);
+  }
 }
 
 // ==================== 响应式处理 ====================
@@ -640,6 +1009,8 @@ function setupChipDistributionSync(): void {
   state.chart.subscribeCrosshairMove((param: MouseEventParams) => {
     if (!param.time || !state.series.candle) {
       chipManager.clearPriceLine();
+      // 鼠标离开时显示最新指标值
+      updateIndicatorBarValuesLatest();
       return;
     }
 
@@ -695,9 +1066,148 @@ function setupChipDistributionSync(): void {
     }
 
     chipManager.updatePriceLine(cursorPrice, param.time as string);
+
+    // 更新指标 bar 的数值
+    updateIndicatorBarValues(param);
   });
 
   console.log('✅ 筹码峰联动已设置');
+}
+
+/**
+ * 更新指标 bar 显示的数值（鼠标悬停时）
+ */
+function updateIndicatorBarValues(param: MouseEventParams): void {
+  if (!param.time || !param.seriesData) return;
+
+  // 获取所有已添加的指标
+  const indicatorIds = indicatorBarList.getAllIndicatorIds();
+
+  indicatorIds.forEach((indicatorId) => {
+    let value = '--';
+
+    switch (indicatorId) {
+      case 'show-ma':
+        // MA20 的值
+        if (state.series.sma20) {
+          const data = param.seriesData.get(state.series.sma20);
+          if (data && (data as any).value !== undefined) {
+            value = (data as any).value.toFixed(2);
+          }
+        }
+        break;
+
+      case 'show-boll':
+        // 布林带中轨的值
+        if (state.series.bollMiddle) {
+          const data = param.seriesData.get(state.series.bollMiddle);
+          if (data && (data as any).value !== undefined) {
+            value = (data as any).value.toFixed(2);
+          }
+        }
+        break;
+
+      case 'show-macd':
+        // MACD DIF 线的值
+        if (state.series.macd) {
+          const data = param.seriesData.get(state.series.macd);
+          if (data && (data as any).value !== undefined) {
+            value = (data as any).value.toFixed(4);
+          }
+        }
+        break;
+
+      case 'show-kdj':
+        // KDJ K 线的值
+        if (state.series.kdjK) {
+          const data = param.seriesData.get(state.series.kdjK);
+          if (data && (data as any).value !== undefined) {
+            value = (data as any).value.toFixed(2);
+          }
+        }
+        break;
+
+      case 'show-rsi':
+        // RSI 的值
+        if (state.series.rsi) {
+          const data = param.seriesData.get(state.series.rsi);
+          if (data && (data as any).value !== undefined) {
+            value = (data as any).value.toFixed(2);
+          }
+        }
+        break;
+    }
+
+    // 更新显示
+    indicatorBarList.updateValue(indicatorId, value);
+  });
+}
+
+/**
+ * 更新指标 bar 显示最新值（鼠标离开时）
+ */
+function updateIndicatorBarValuesLatest(): void {
+  if (!state.stockData) return;
+
+  const indicatorIds = indicatorBarList.getAllIndicatorIds();
+
+  indicatorIds.forEach((indicatorId) => {
+    let value = '--';
+
+    switch (indicatorId) {
+      case 'show-ma':
+        // MA20 最新值
+        if (state.stockData.sma20 && state.stockData.sma20.length > 0) {
+          const latest = state.stockData.sma20[state.stockData.sma20.length - 1];
+          if (latest && latest.value !== 0) {
+            value = latest.value.toFixed(2);
+          }
+        }
+        break;
+
+      case 'show-boll':
+        // 布林带中轨最新值
+        if (state.stockData.boll && state.stockData.boll.middle.length > 0) {
+          const latest = state.stockData.boll.middle[state.stockData.boll.middle.length - 1];
+          if (latest && latest.value !== 0) {
+            value = latest.value.toFixed(2);
+          }
+        }
+        break;
+
+      case 'show-macd':
+        // MACD DIF 最新值
+        if (state.stockData.macd && state.stockData.macd.macd.length > 0) {
+          const latest = state.stockData.macd.macd[state.stockData.macd.macd.length - 1];
+          if (latest && latest.value !== 0) {
+            value = latest.value.toFixed(4);
+          }
+        }
+        break;
+
+      case 'show-kdj':
+        // KDJ K 最新值
+        if (state.stockData.kdj && state.stockData.kdj.k.length > 0) {
+          const latest = state.stockData.kdj.k[state.stockData.kdj.k.length - 1];
+          if (latest && latest.value !== 0) {
+            value = latest.value.toFixed(2);
+          }
+        }
+        break;
+
+      case 'show-rsi':
+        // RSI 最新值
+        if (state.stockData.rsi && state.stockData.rsi.length > 0) {
+          const latest = state.stockData.rsi[state.stockData.rsi.length - 1];
+          if (latest && latest.value !== 0) {
+            value = latest.value.toFixed(2);
+          }
+        }
+        break;
+    }
+
+    indicatorBarList.updateValue(indicatorId, value);
+  });
 }
 
 // ==================== 筹码峰设置 ====================
@@ -814,34 +1324,43 @@ async function init(): Promise<void> {
   console.log('🚀 应用初始化开始...');
 
   try {
-    // 1. 加载数据
-    const data = await fetchStockData();
+    // 1. 加载配置文件（最优先！）
+    await indicatorConfigManager.loadConfig();
+    console.log('✅ 配置文件加载完成');
+
+    // 2. 根据配置初始化 indicator bars（启用的指标）
+    const enabledIndicators = indicatorConfigManager.getEnabledIndicators();
+    console.log(`📊 启用的指标: ${enabledIndicators.join(', ')}`);
+
+    // 3. 加载数据（使用配置参数）
+    const indicatorsQuery = buildIndicatorsQueryString();
+    const data = await fetchStockData('daily', indicatorsQuery);
     state.stockData = data;
 
-    // 2. 初始化图表
+    // 4. 初始化图表
     initializeCharts();
 
-    // 3. 渲染数据
+    // 5. 渲染数据
     renderMainChart(data);
     renderVolumeChart(data);
 
-    // 4. 初始化 OHLCV Bar 组件
+    // 6. 初始化 OHLCV Bar 组件
     if (state.chart) {
       ohlcvBar.init(state.chart, state.series, 'main-chart');
       console.log('✅ OHLCV Bar 组件已加载');
     }
 
-    // 5. 初始化筹码峰管理器
+    // 7. 初始化筹码峰管理器
     chipManager.init();
     await initializeChipDistribution();
     setupChipDistributionSync();
     setupChipSettings();
     console.log('✅ 筹码峰模块已加载');
 
-    // 6. 设置控制面板
+    // 8. 设置控制面板
     setupControls();
 
-    // 7. 响应式
+    // 9. 响应式
     setupResponsive();
 
     console.log('✅ 应用初始化完成');

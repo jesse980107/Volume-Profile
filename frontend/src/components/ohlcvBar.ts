@@ -93,10 +93,47 @@ export class OHLCVBar {
   }
 
   /**
-   * 隐藏 bar
+   * 显示最新 K 线数据
    */
-  hide(): void {
-    if (this.barElement) {
+  showLatestData(): void {
+    if (!this.barElement || !this.seriesRefs || !this.seriesRefs.candle) return;
+
+    try {
+      // 获取最新的 K 线数据
+      const candleData = (this.seriesRefs.candle as any).dataByIndex(
+        (this.seriesRefs.candle as any).data().length - 1
+      );
+      const volumeData = this.seriesRefs.volume
+        ? (this.seriesRefs.volume as any).dataByIndex(
+            (this.seriesRefs.volume as any).data().length - 1
+          )
+        : null;
+
+      if (!candleData) {
+        this.barElement.style.display = 'none';
+        return;
+      }
+
+      // 构建显示内容
+      const priceChange = candleData.close - candleData.open;
+      const priceChangeClass = priceChange >= 0 ? 'up' : 'down';
+
+      const items: string[] = [];
+      items.push(`<span class="ohlcv-item">O: ${this.formatNumber(candleData.open)}</span>`);
+      items.push(`<span class="ohlcv-item">H: ${this.formatNumber(candleData.high)}</span>`);
+      items.push(`<span class="ohlcv-item">L: ${this.formatNumber(candleData.low)}</span>`);
+      items.push(
+        `<span class="ohlcv-item">C: <span class="${priceChangeClass}">${this.formatNumber(candleData.close)}</span></span>`
+      );
+
+      if (volumeData) {
+        items.push(`<span class="ohlcv-item">Vol: ${this.formatNumber(volumeData.value, 0)}</span>`);
+      }
+
+      this.barElement.innerHTML = items.join(' ');
+      this.barElement.style.display = 'block';
+    } catch (error) {
+      console.error('显示最新数据失败:', error);
       this.barElement.style.display = 'none';
     }
   }
@@ -138,11 +175,15 @@ export class OHLCVBar {
     // 订阅 crosshair 移动事件
     this.chartInstance.subscribeCrosshairMove((param) => {
       if (!param || !param.time || !param.point) {
-        this.hide();
+        // 鼠标移出时显示最新数据
+        this.showLatestData();
         return;
       }
       this.update(param);
     });
+
+    // 初始化时显示最新数据
+    this.showLatestData();
 
     console.log('✅ OHLCV Bar 组件初始化完成');
     return true;

@@ -1,6 +1,7 @@
 /**
  * Timeframe Selector Component
- * 管理时间间隔选择器的创建、渲染和交互
+ * 下拉式时间间隔选择器
+ * 点击按钮显示下拉菜单，选择后更新按钮文字
  */
 
 import type { TimeframeType } from '../types';
@@ -9,10 +10,8 @@ import type { TimeframeType } from '../types';
  * 时间间隔项配置
  */
 interface TimeframeItem {
-  id: string;
   interval: TimeframeType;
   label: string;
-  active: boolean;
 }
 
 /**
@@ -25,101 +24,149 @@ type TimeframeChangeCallback = (interval: TimeframeType) => void;
  */
 export class TimeframeSelector {
   private container: HTMLElement | null = null;
+  private buttonElement: HTMLButtonElement | null = null;
+  private dropdownElement: HTMLDivElement | null = null;
   private listeners: TimeframeChangeCallback[] = [];
   private currentInterval: TimeframeType = 'daily';
+  private isDropdownOpen: boolean = false;
 
   /**
    * 时间间隔配置
    */
   private readonly timeframes: TimeframeItem[] = [
-    { id: 'btn-daily', interval: 'daily', label: 'D', active: true },
-    { id: 'btn-weekly', interval: 'weekly', label: 'W', active: false },
-    { id: 'btn-monthly', interval: 'monthly', label: 'M', active: false },
+    { interval: 'daily', label: 'D' },
+    { interval: 'weekly', label: 'W' },
+    { interval: 'monthly', label: 'M' },
   ];
 
   /**
    * 创建 HTML 结构
    */
   private createHTML(): HTMLDivElement {
-    const controlsDiv = document.createElement('div');
-    controlsDiv.className = 'timeframe-controls';
-    controlsDiv.id = 'timeframe-selector';
+    const container = document.createElement('div');
+    container.className = 'timeframe-selector-wrapper';
+    container.id = 'timeframe-selector';
 
-    const buttonsDiv = document.createElement('div');
-    buttonsDiv.className = 'timeframe-buttons';
+    // 主按钮
+    const button = document.createElement('button');
+    button.className = 'timeframe-selector-button';
+    button.textContent = this.getLabelByInterval(this.currentInterval);
+    this.buttonElement = button;
+
+    // 下拉菜单
+    const dropdown = document.createElement('div');
+    dropdown.className = 'timeframe-dropdown';
+    this.dropdownElement = dropdown;
 
     this.timeframes.forEach((item) => {
-      const button = document.createElement('button');
-      button.id = item.id;
-      button.className = `timeframe-btn${item.active ? ' active' : ''}`;
-      button.setAttribute('data-interval', item.interval);
-      button.textContent = item.label;
+      const option = document.createElement('div');
+      option.className = 'timeframe-dropdown-item';
+      option.setAttribute('data-interval', item.interval);
+      option.textContent = item.label;
 
-      buttonsDiv.appendChild(button);
+      option.addEventListener('click', () => {
+        this.selectInterval(item.interval);
+      });
+
+      dropdown.appendChild(option);
     });
 
-    controlsDiv.appendChild(buttonsDiv);
-    return controlsDiv;
+    container.appendChild(button);
+    container.appendChild(dropdown);
+
+    return container;
   }
 
   /**
    * 绑定事件监听
    */
   private bindEvents(): void {
-    this.timeframes.forEach((item) => {
-      const button = document.getElementById(item.id) as HTMLButtonElement | null;
-      if (button) {
-        button.addEventListener('click', () => {
-          const interval = button.dataset.interval as TimeframeType;
-          if (interval && interval !== this.currentInterval) {
-            this.handleChange(interval);
-          }
-        });
+    if (!this.buttonElement) return;
+
+    // 点击按钮切换下拉菜单
+    this.buttonElement.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleDropdown();
+    });
+
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', (e) => {
+      if (this.container && !this.container.contains(e.target as Node)) {
+        this.closeDropdown();
       }
     });
   }
 
   /**
-   * 处理时间间隔切换事件
+   * 获取时间间隔对应的标签
    */
-  private handleChange(interval: TimeframeType): void {
+  private getLabelByInterval(interval: TimeframeType): string {
+    const item = this.timeframes.find((t) => t.interval === interval);
+    return item ? item.label : 'D';
+  }
+
+  /**
+   * 切换下拉菜单显示/隐藏
+   */
+  private toggleDropdown(): void {
+    if (this.isDropdownOpen) {
+      this.closeDropdown();
+    } else {
+      this.openDropdown();
+    }
+  }
+
+  /**
+   * 打开下拉菜单
+   */
+  private openDropdown(): void {
+    if (!this.dropdownElement) return;
+
+    this.dropdownElement.classList.add('active');
+    this.isDropdownOpen = true;
+  }
+
+  /**
+   * 关闭下拉菜单
+   */
+  private closeDropdown(): void {
+    if (!this.dropdownElement) return;
+
+    this.dropdownElement.classList.remove('active');
+    this.isDropdownOpen = false;
+  }
+
+  /**
+   * 选择时间间隔
+   */
+  private selectInterval(interval: TimeframeType): void {
+    if (interval === this.currentInterval) {
+      this.closeDropdown();
+      return;
+    }
+
     console.log(`切换时间间隔: ${interval}`);
 
     // 更新当前间隔
     this.currentInterval = interval;
 
-    // 更新按钮状态
-    this.updateButtonStates(interval);
+    // 更新按钮文字
+    if (this.buttonElement) {
+      this.buttonElement.textContent = this.getLabelByInterval(interval);
+    }
+
+    // 关闭下拉菜单
+    this.closeDropdown();
 
     // 触发回调
     this.listeners.forEach((callback) => callback(interval));
   }
 
   /**
-   * 更新按钮状态
-   */
-  private updateButtonStates(activeInterval: TimeframeType): void {
-    this.timeframes.forEach((item) => {
-      const button = document.getElementById(item.id);
-      if (button) {
-        if (item.interval === activeInterval) {
-          button.classList.add('active');
-        } else {
-          button.classList.remove('active');
-        }
-      }
-    });
-  }
-
-  /**
    * 初始化组件
    * @param containerId - 父容器 ID
-   * @param insertPosition - 插入位置 ('prepend' | 'append')
    */
-  init(
-    containerId: string = 'main-chart',
-    insertPosition: 'prepend' | 'append' = 'prepend'
-  ): boolean {
+  init(containerId: string = 'main-chart'): boolean {
     console.log('📅 初始化 Timeframe Selector 组件...');
 
     const parentContainer = document.getElementById(containerId);
@@ -128,22 +175,23 @@ export class TimeframeSelector {
       return false;
     }
 
-    // 查找或创建挂载点
-    this.container = parentContainer.parentElement;
-    if (!this.container) {
+    const wrapper = parentContainer.parentElement;
+    if (!wrapper) {
       console.error('无法找到父容器');
       return false;
     }
 
-    // 创建并插入 HTML
-    const selectorHTML = this.createHTML();
-
-    // 根据插入位置决定插入方式
-    if (insertPosition === 'prepend') {
-      this.container.insertBefore(selectorHTML, parentContainer);
-    } else {
-      this.container.appendChild(selectorHTML);
+    // 创建容器（或查找已存在的 timeframe-controls）
+    let controlsContainer = wrapper.querySelector('.timeframe-controls') as HTMLElement;
+    if (!controlsContainer) {
+      controlsContainer = document.createElement('div');
+      controlsContainer.className = 'timeframe-controls';
+      wrapper.appendChild(controlsContainer);
     }
+
+    // 创建选择器并插入
+    this.container = this.createHTML();
+    controlsContainer.insertBefore(this.container, controlsContainer.firstChild);
 
     // 绑定事件
     this.bindEvents();
@@ -179,7 +227,9 @@ export class TimeframeSelector {
    */
   setCurrentInterval(interval: TimeframeType): void {
     this.currentInterval = interval;
-    this.updateButtonStates(interval);
+    if (this.buttonElement) {
+      this.buttonElement.textContent = this.getLabelByInterval(interval);
+    }
   }
 
   /**
@@ -187,11 +237,11 @@ export class TimeframeSelector {
    */
   destroy(): void {
     if (this.container) {
-      const selector = document.getElementById('timeframe-selector');
-      if (selector) {
-        selector.remove();
-      }
+      this.container.remove();
+      this.container = null;
     }
+    this.buttonElement = null;
+    this.dropdownElement = null;
     this.listeners = [];
     console.log('✅ Timeframe Selector 组件已销毁');
   }

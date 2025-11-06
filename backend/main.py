@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import API_V1_PREFIX, ALLOWED_ORIGINS
-from backend.api.routes import stock
+from backend.api.routes import stock, indicators, config
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -36,9 +36,12 @@ app.add_middleware(
 
 # 注册路由 (使用 APIRouter 模块化)
 app.include_router(stock.router, prefix=API_V1_PREFIX)
+app.include_router(indicators.router, prefix=API_V1_PREFIX)
+app.include_router(config.router, prefix=API_V1_PREFIX)
 
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
+app.mount("/config", StaticFiles(directory="frontend/config"), name="config")
 
 
 @app.get("/")

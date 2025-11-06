@@ -25,7 +25,7 @@ body {
     line-height: 1.6;
 }
 
-/* ==================== 控制面板叠加层 ==================== */
+/* ==================== 主图表容器 ==================== */
 .chart-main-wrapper {
     position: relative;
     flex: 1;
@@ -33,56 +33,6 @@ body {
     flex-direction: column;
     min-width: 0;
     height: 100%;
-}
-
-.controls-overlay {
-    position: absolute;
-    top: 50px;  /* 调整位置，避免与 OHLCV 横 bar 重叠 */
-    left: 10px;
-    z-index: 100;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(10px);
-    padding: 8px 12px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    pointer-events: auto;
-}
-
-.control-group {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.checkbox-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background 0.2s;
-}
-
-.checkbox-label:hover {
-    background: rgba(102, 126, 234, 0.15);
-}
-
-.checkbox-label input[type="checkbox"] {
-    cursor: pointer;
-    width: 14px;
-    height: 14px;
-}
-
-.checkbox-label span {
-    font-size: 12px;
-    color: #555;
-    font-weight: 500;
-    white-space: nowrap;
 }
 
 .btn-primary {
@@ -274,51 +224,537 @@ body {
     }
 }
 
-/* ==================== 时间间隔控制栏 ==================== */
+/* ==================== 左侧控制栏 (Timeframe + Indicators，在 OHLCV 下方) ==================== */
 .timeframe-controls {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 44px;  /* OHLCV 下方 */
+    left: 8px;  /* 左侧对齐 */
     z-index: 100;
     pointer-events: auto;
+    display: flex;
+    gap: 6px;
+    align-items: center;
 }
 
-.timeframe-buttons {
-    display: flex;
-    gap: 4px;
+/* ==================== Timeframe Selector (下拉式) ==================== */
+.timeframe-selector-wrapper {
+    position: relative;
+}
+
+.timeframe-selector-button {
     background: rgba(30, 34, 45, 0.92);
     backdrop-filter: blur(10px);
-    padding: 4px;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.timeframe-btn {
-    background: transparent;
     color: #d1d4dc;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px 16px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
     transition: all 0.2s ease;
     white-space: nowrap;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    min-width: 40px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-.timeframe-btn:hover {
+.timeframe-selector-button:hover {
+    background: rgba(40, 44, 55, 0.95);
+    color: #ffffff;
+}
+
+.timeframe-selector-button:active {
+    transform: scale(0.98);
+}
+
+/* 下拉菜单 */
+.timeframe-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    background: rgba(30, 34, 45, 0.98);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.2s ease;
+    z-index: 200;
+}
+
+.timeframe-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.timeframe-dropdown-item {
+    padding: 8px 16px;
+    color: #d1d4dc;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.15s ease;
+    text-align: center;
+}
+
+.timeframe-dropdown-item:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #ffffff;
 }
 
-.timeframe-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #ffffff;
-    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+/* ==================== Indicator Button ==================== */
+.indicator-button {
+    background: rgba(30, 34, 45, 0.92);
+    backdrop-filter: blur(10px);
+    color: #d1d4dc;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-.timeframe-btn:active {
+.indicator-button:hover {
+    background: rgba(40, 44, 55, 0.95);
+    color: #ffffff;
+}
+
+.indicator-button:active {
     transform: scale(0.98);
+}
+
+/* ==================== Indicator Bar List (左侧，在 Timeframe/Indicators 按钮下方) ==================== */
+.indicator-bar-list {
+    position: absolute;
+    top: 84px;  /* 在 timeframe-controls 下方 */
+    left: 8px;
+    z-index: 85;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    pointer-events: auto;
+}
+
+.indicator-bar {
+    background: rgba(30, 34, 45, 0.75);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 140px;
+    cursor: default;
+    transition: all 0.2s ease;
+}
+
+.indicator-bar:hover {
+    background: rgba(30, 34, 45, 0.95);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* 左侧：名称和数值 */
+.indicator-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.indicator-bar-name {
+    color: #d1d4dc;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.indicator-bar-value {
+    color: #a3a6b0;
+    font-size: 11px;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+/* 右侧：操作按钮（默认隐藏，hover 时显示） */
+.indicator-bar-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.indicator-bar:hover .indicator-bar-actions {
+    opacity: 1;
+}
+
+.indicator-bar-btn {
+    background: transparent;
+    border: none;
+    color: #a3a6b0;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 13px;
+    line-height: 1;
+    transition: all 0.15s ease;
+    border-radius: 3px;
+}
+
+.indicator-bar-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+.visibility-btn.active {
+    color: #667eea;
+}
+
+.remove-btn:hover {
+    color: #ef5350;
+}
+
+/* ==================== Indicator Modal (全屏) ==================== */
+.indicator-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.indicator-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.indicator-modal-content {
+    background: rgba(30, 34, 45, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 700px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.indicator-modal.active .indicator-modal-content {
+    transform: scale(1);
+}
+
+/* Modal 头部 */
+.indicator-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.indicator-modal-header h3 {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.indicator-modal-close {
+    background: transparent;
+    border: none;
+    color: #a3a6b0;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+    padding: 4px 8px;
+    transition: color 0.2s ease;
+}
+
+.indicator-modal-close:hover {
+    color: #ffffff;
+}
+
+/* Modal 指标列表 */
+.indicator-modal-list {
+    display: flex;
+    flex-direction: column;  /* 改为垂直排列 */
+    gap: 8px;  /* 减小间距，因为是单列 */
+}
+
+.indicator-modal-item {
+    background: rgba(50, 54, 65, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;  /* 占满容器宽度 */
+    min-width: 0;
+}
+
+.indicator-modal-item:hover {
+    background: rgba(60, 64, 75, 0.8);
+    border-color: rgba(102, 126, 234, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.indicator-modal-item-label {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.indicator-modal-item-desc {
+    color: #a3a6b0;
+    font-size: 12px;
+    font-weight: 400;
+}
+
+/* ==================== Indicator Settings Panel (设置面板) ==================== */
+.indicator-settings-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.indicator-settings-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.indicator-settings-panel {
+    background: rgba(30, 34, 45, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.indicator-settings-overlay.active .indicator-settings-panel {
+    transform: scale(1);
+}
+
+/* 设置面板头部 */
+.settings-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-panel-header h3 {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.settings-panel-close {
+    background: transparent;
+    border: none;
+    color: #a3a6b0;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+    padding: 4px 8px;
+    transition: color 0.2s ease;
+}
+
+.settings-panel-close:hover {
+    color: #ffffff;
+}
+
+/* 设置面板表单 */
+.settings-panel-form {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.settings-field {
+    margin-bottom: 20px;
+}
+
+.settings-field:last-child {
+    margin-bottom: 0;
+}
+
+.settings-field label {
+    display: block;
+    color: #d1d4dc;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.settings-field input[type="number"],
+.settings-field input[type="color"],
+.settings-field select {
+    width: 100%;
+    background: rgba(50, 54, 65, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #ffffff;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.settings-field input[type="number"]:focus,
+.settings-field select:focus {
+    outline: none;
+    border-color: rgba(102, 126, 234, 0.5);
+    background: rgba(60, 64, 75, 0.8);
+}
+
+.settings-field input[type="color"] {
+    height: 40px;
+    padding: 4px;
+    cursor: pointer;
+}
+
+/* 布尔开关 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(50, 54, 65, 0.8);
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #667eea;
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+/* 多周期选择器 */
+.multi-period-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: #d1d4dc;
+    font-size: 13px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.checkbox-label:hover {
+    color: #ffffff;
+}
+
+/* 设置面板底部 */
+.settings-panel-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-secondary {
+    background: rgba(50, 54, 65, 0.8);
+    color: #d1d4dc;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(60, 64, 75, 0.9);
+    color: #ffffff;
+}
+
+.settings-panel-footer .btn-primary {
+    margin-left: 0;
+    padding: 8px 20px;
+    font-size: 14px;
 }
