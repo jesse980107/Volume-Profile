@@ -154,56 +154,147 @@ export class ChipManager {
       return;
     }
 
+    // 存储数据供后续使用
+    this.globalChipData = chipData;
+
     // 按价格排序（从低到高）
     const sorted = [...chipData.distribution].sort((a, b) => a.price - b.price);
 
     // 计算总成交量
     const totalVolume = sorted.reduce((sum, d) => sum + d.volume, 0);
+    this.totalVolume = totalVolume;
 
-    // 提取数据
-    const prices = sorted.map((d) => d.price.toFixed(2));
-    const chartData: ChartDataItem[] = sorted.map((d) => {
+    // 提取数据 - 横向柱状图
+    const chartData: any[] = sorted.map((d) => {
       const isPeak = this.isPeak(d.price, chipData.peaks);
       const percentage = (d.volume / totalVolume) * 100;
 
       return {
-        value: d.volume,
+        value: [d.volume, d.price], // [X轴:成交量, Y轴:价格] - 横向条形图
         percentage: percentage,
         itemStyle: this.getBarStyle(isPeak, false), // 不区分获利盘套牢盘
       };
     });
 
-    // 构建 Y 轴配置
+    // 获取价格范围
+    const minPrice = sorted[0].price;
+    const maxPrice = sorted[sorted.length - 1].price;
+
+    // Y 轴配置 - 价格轴（使用 value 类型以支持精确的 min/max）
     const yAxisConfig = {
-      type: 'category' as const,
-      data: prices,
+      type: 'value' as const,
       position: 'right' as const,
+      min: minPrice,
+      max: maxPrice,
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: {
         color: '#787b86',
         fontSize: 11,
-        formatter: (value: any) => '¥' + value,
+        formatter: (value: number) => '¥' + value.toFixed(2),
       },
       splitLine: { show: false },
     };
 
+    // X 轴配置 - 成交量（隐藏）
+    const xAxisConfig = {
+      type: 'value' as const,
+      show: false,
+      min: 0,
+    };
+
     // 更新图表
     this.chart.setOption({
+      xAxis: xAxisConfig,
       yAxis: yAxisConfig,
+      series: [
+        {
+          type: 'custom',  // 使用 custom 类型绘制横向条形
+          renderItem: (params: any, api: any) => {
+            const volume = api.value(0);  // X: 成交量
+            const price = api.value(1);   // Y: 价格
+            const yPos = api.coord([0, price])[1];  // 价格对应的像素 Y 坐标
+            const xEnd = api.coord([volume, price])[0];  // 成交量对应的像素 X 坐标
+
+            const height = 8;  // 条形高度
+            const barStyle = chartData[params.dataIndex].itemStyle;
+
+            return {
+              type: 'rect',
+              shape: {
+                x: params.coordSys.x,  // 起点 X（图表左侧）
+                y: yPos - height / 2,  // Y 坐标居中
+                width: xEnd - params.coordSys.x,  // 宽度
+                height: height,
+              },
+              style: {
+                fill: barStyle.color,
+              },
+            };
+          },
+          data: chartData,
+        },
+      ],
+    });
+
+    // 更新统计信息（不显示当前价格相关的）
+    this.updateGlobalStats(chipData, totalVolume);
+  }
+
+  /**
+   * 同步 Y 轴到 Lightweight Charts 的价格范围
+   * @param minPrice - Lightweight Charts 的最小价格
+   * @param maxPrice - Lightweight Charts 的最大价格
+   */
+  syncYAxis(minPrice: number, maxPrice: number): void {
+    if (!this.chart || !this.globalChipData) return;
+
+    // 过滤出在可见范围内的筹码数据
+    const visibleChips = this.globalChipData.distribution.filter(
+      (d) => d.price >= minPrice && d.price <= maxPrice
+    );
+
+    // 如果可见范围内没有筹码，只更新 Y 轴范围，不更新数据
+    if (visibleChips.length === 0) {
+      this.chart.setOption({
+        yAxis: {
+          min: minPrice,
+          max: maxPrice,
+        },
+      });
+      return;
+    }
+
+    // 按价格排序
+    const sorted = [...visibleChips].sort((a, b) => a.price - b.price);
+
+    // 计算总成交量（使用可见范围内的）
+    const totalVolume = sorted.reduce((sum, d) => sum + d.volume, 0);
+
+    // 提取数据 - [X:成交量, Y:价格] 横向条形图
+    const chartData: any[] = sorted.map((d) => {
+      const isPeak = this.isPeak(d.price, this.globalChipData!.peaks);
+      const percentage = (d.volume / totalVolume) * 100;
+
+      return {
+        value: [d.volume, d.price], // [X轴:成交量, Y轴:价格]
+        percentage: percentage,
+        itemStyle: this.getBarStyle(isPeak, false),
+      };
+    });
+
+    // 关键：强制设置 Y 轴范围与 Lightweight Charts 一致
+    this.chart.setOption({
+      yAxis: {
+        min: minPrice,
+        max: maxPrice,
+      },
       series: [
         {
           data: chartData,
         },
       ],
     });
-
-    // 存储数据供后续使用
-    this.globalChipData = chipData;
-    this.totalVolume = totalVolume;
-
-    // 更新统计信息（不显示当前价格相关的）
-    this.updateGlobalStats(chipData, totalVolume);
   }
 
   /**

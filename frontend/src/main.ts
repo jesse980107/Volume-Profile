@@ -1138,6 +1138,11 @@ function setupResponsive(): void {
           width: container.clientWidth,
           height: container.clientHeight,
         });
+
+        // resize 后同步筹码峰 Y 轴
+        setTimeout(() => {
+          syncChipYAxis();
+        }, 100);
       }
     }
   });
@@ -1170,6 +1175,8 @@ async function initializeChipDistribution(): Promise<void> {
     const lastChipData = chipCalculator.get(lastCandle.time);
     if (lastChipData) {
       chipManager.updateGlobal(lastChipData);
+      // 初始化后立即同步 Y 轴
+      syncChipYAxis();
     }
   } catch (error) {
     console.error('筹码分布初始化失败:', error);
@@ -1180,6 +1187,7 @@ async function initializeChipDistribution(): Promise<void> {
 function setupChipDistributionSync(): void {
   if (!state.chart) return;
 
+  // 1. 监听十字线移动（原有逻辑）
   state.chart.subscribeCrosshairMove((param: MouseEventParams) => {
     if (!param.time || !state.series.candle) {
       chipManager.clearPriceLine();
@@ -1245,7 +1253,35 @@ function setupChipDistributionSync(): void {
     updateIndicatorBarValues(param);
   });
 
-  console.log('✅ 筹码峰联动已设置');
+  // 2. 监听价格轴可见范围变化（新增 - 同步 Y 轴）
+  state.chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+    syncChipYAxis();
+  });
+
+  // 3. 初始同步一次
+  syncChipYAxis();
+
+  console.log('✅ 筹码峰联动已设置（包含 Y 轴同步）');
+}
+
+/**
+ * 同步筹码峰的 Y 轴到主图价格轴
+ */
+function syncChipYAxis(): void {
+  if (!state.chart || !state.stockData) return;
+
+  try {
+    // 获取主图的价格轴
+    const priceScale = state.chart.priceScale('right');
+    const range = priceScale.getVisibleRange();
+
+    if (range && range.from !== null && range.to !== null) {
+      // 同步 ECharts Y 轴
+      chipManager.syncYAxis(range.from, range.to);
+    }
+  } catch (error) {
+    console.warn('同步筹码峰 Y 轴失败:', error);
+  }
 }
 
 /**
