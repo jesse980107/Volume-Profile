@@ -5,9 +5,6 @@
 import type {
   IChartApi,
   ISeriesApi,
-  CandlestickSeriesPartialOptions,
-  HistogramSeriesPartialOptions,
-  LineSeriesPartialOptions,
 } from 'lightweight-charts';
 import type { StockDataResponse, TimeframeType } from './api.types';
 
@@ -26,22 +23,22 @@ export interface ChartPanes {
  * 图表系列集合
  */
 export interface ChartSeries {
-  candle: ISeriesApi<'Candlestick', CandlestickSeriesPartialOptions> | null;
-  volume: ISeriesApi<'Histogram', HistogramSeriesPartialOptions> | null;
-  sma5: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  sma10: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  sma20: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  sma60: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  macd: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  macdSignal: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  macdHistogram: ISeriesApi<'Histogram', HistogramSeriesPartialOptions> | null;
-  kdjK: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  kdjD: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  kdjJ: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  rsi: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  bollUpper: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  bollMiddle: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
-  bollLower: ISeriesApi<'Line', LineSeriesPartialOptions> | null;
+  candle: ISeriesApi<'Candlestick'> | null;
+  volume: ISeriesApi<'Histogram'> | null;
+  ma5: ISeriesApi<'Line'> | null;
+  ma10: ISeriesApi<'Line'> | null;
+  ma20: ISeriesApi<'Line'> | null;
+  ma60: ISeriesApi<'Line'> | null;
+  macd: ISeriesApi<'Line'> | null;
+  macdSignal: ISeriesApi<'Line'> | null;
+  macdHistogram: ISeriesApi<'Histogram'> | null;
+  kdjK: ISeriesApi<'Line'> | null;
+  kdjD: ISeriesApi<'Line'> | null;
+  kdjJ: ISeriesApi<'Line'> | null;
+  rsi: ISeriesApi<'Line'> | null;
+  bollUpper: ISeriesApi<'Line'> | null;
+  bollMiddle: ISeriesApi<'Line'> | null;
+  bollLower: ISeriesApi<'Line'> | null;
 }
 
 /**

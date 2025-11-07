@@ -7,11 +7,11 @@
       "parameters": {
         "ma_type": "sma",
         "period1": 5,
-        "color1": "invisible",
-        "period2": 10,
-        "color2": "#E91E63",
+        "color1": "#FFEB3B",
+        "period2": 20,
+        "color2": "#2962FF",
         "period3": 60,
-        "color3": "#FFA500"
+        "color3": "#FF6B6B"
       }
     },
     "macd": {
@@ -44,7 +44,12 @@
       "visible": false,
       "parameters": {
         "period": 20,
-        "std_dev": 2
+        "std_dev": 2,
+        "nbdev_up": 2,
+        "nbdev_down": 2,
+        "upper_color": "#FF6D00",
+        "middle_color": "#2962FF",
+        "lower_color": "#00C853"
       }
     }
   }

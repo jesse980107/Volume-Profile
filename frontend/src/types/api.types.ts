@@ -65,10 +65,10 @@ export interface StockDataResponse {
   symbol: string;
   candlestick: CandleData[];
   volume: VolumeData[];
-  sma5: ValueData[];
-  sma10: ValueData[];
-  sma20: ValueData[];
-  sma60: ValueData[];
+  ma5: ValueData[];
+  ma10: ValueData[];
+  ma20: ValueData[];
+  ma60: ValueData[];
   macd: MACDData;
   kdj: KDJData;
   rsi: ValueData[];

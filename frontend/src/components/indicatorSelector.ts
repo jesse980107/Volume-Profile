@@ -42,10 +42,10 @@ export class IndicatorSelector {
       group: 'ma',
       label: '均线',
       items: [
-        { id: 'show-sma5', label: 'MA5', checked: true },
-        { id: 'show-sma10', label: 'MA10', checked: true },
-        { id: 'show-sma20', label: 'MA20', checked: true },
-        { id: 'show-sma60', label: 'MA60', checked: false },
+        { id: 'show-ma5', label: 'MA5', checked: true },
+        { id: 'show-ma10', label: 'MA10', checked: true },
+        { id: 'show-ma20', label: 'MA20', checked: true },
+        { id: 'show-ma60', label: 'MA60', checked: false },
       ],
     },
     // 技术指标组

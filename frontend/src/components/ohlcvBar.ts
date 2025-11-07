@@ -6,7 +6,6 @@
 import type {
   IChartApi,
   MouseEventParams,
-  ISeriesApi,
   CandlestickData,
   HistogramData,
 } from 'lightweight-charts';

@@ -355,6 +355,7 @@ body {
     align-items: center;
     justify-content: space-between;
     min-width: 140px;
+    width: fit-content;
     cursor: default;
     transition: all 0.2s ease;
 }
@@ -385,6 +386,15 @@ body {
     font-size: 11px;
     font-weight: 400;
     white-space: nowrap;
+}
+
+.indicator-bar-value.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
 /* 右侧：操作按钮（默认隐藏，hover 时显示） */

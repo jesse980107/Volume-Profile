@@ -32,7 +32,6 @@ interface ChartDataItem {
  */
 export class ChipManager {
   private chart: ECharts | null = null;
-  private currentPrice: number = 0;
   private container: HTMLElement | null = null;
   private globalChipData: ChipDistributionResult | null = null;
   private totalVolume: number = 0;
@@ -208,23 +207,21 @@ export class ChipManager {
   }
 
   /**
-   * 更新价格标记线（鼠标悬停时调用）
+   * 更新统计信息（不绘制价格线）
    * @param currentPrice - 当前价格
    * @param currentDate - 当前日期
    */
-  updatePriceLine(currentPrice: number, currentDate: string): void {
-    if (!this.chart || !this.globalChipData) return;
+  updateStats(currentPrice: number, currentDate: string): void {
+    if (!this.globalChipData) return;
 
-    this.currentPrice = currentPrice;
-
-    // 重新计算获利盘和套牢盘
+    // 计算获利盘和套牢盘
     const { profitRatio, lossRatio } = this.calculateProfitLoss(
       this.globalChipData.distribution,
       currentPrice,
       this.totalVolume
     );
 
-    // 更新统计信息中的价格相关部分
+    // 更新统计信息 UI
     const dateEl = document.getElementById('chip-date');
     if (dateEl) {
       dateEl.textContent = currentDate || '--';
@@ -239,50 +236,10 @@ export class ChipManager {
     if (lossEl) {
       lossEl.textContent = `${lossRatio.toFixed(1)}%`;
     }
-
-    // 在图表上画一条横线标记当前价格
-    this.drawPriceLine(currentPrice);
   }
 
   /**
-   * 绘制价格标记线
-   * @param price - 价格值
-   */
-  private drawPriceLine(price: number): void {
-    if (!this.chart) return;
-
-    this.chart.setOption({
-      series: [
-        {
-          markLine: {
-            silent: true,
-            symbol: 'none',
-            lineStyle: {
-              color: '#FFA500',
-              width: 2,
-              type: 'solid',
-            },
-            label: {
-              show: true,
-              position: 'end',
-              formatter: '¥{c}',
-              color: '#FFA500',
-              fontSize: 11,
-              fontWeight: 'bold',
-            },
-            data: [
-              {
-                yAxis: price.toFixed(2),
-              },
-            ],
-          },
-        },
-      ],
-    });
-  }
-
-  /**
-   * 清除价格标记（鼠标离开时调用）
+   * 清除统计信息（鼠标离开时调用）
    */
   clearPriceLine(): void {
     const dateEl = document.getElementById('chip-date');
@@ -298,19 +255,6 @@ export class ChipManager {
     const lossEl = document.getElementById('loss-ratio');
     if (lossEl) {
       lossEl.textContent = '--';
-    }
-
-    // 清除图表上的价格线
-    if (this.chart) {
-      this.chart.setOption({
-        series: [
-          {
-            markLine: {
-              data: [],
-            },
-          },
-        ],
-      });
     }
   }
 

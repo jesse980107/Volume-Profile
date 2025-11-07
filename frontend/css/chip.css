@@ -9,8 +9,8 @@
     gap: 0;
     align-items: stretch;
     width: 100%;
-    height: 100%;
-    flex: 1;
+    flex: 1;  /* 填充父容器剩余空间 */
+    min-height: 0;  /* 防止 flex 子项溢出 */
 }
 
 .chart-main {

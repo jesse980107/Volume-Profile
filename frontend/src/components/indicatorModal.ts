@@ -10,7 +10,7 @@ interface IndicatorConfig {
   description?: string;
 }
 
-type AddIndicatorCallback = (indicatorId: string) => void;
+type AddIndicatorCallback = (indicatorId: string) => void | Promise<void>;
 
 export class IndicatorModal {
   private modalElement: HTMLDivElement | null = null;
@@ -105,14 +105,16 @@ export class IndicatorModal {
   /**
    * 处理添加指标
    */
-  private handleAddIndicator(indicatorId: string): void {
+  private async handleAddIndicator(indicatorId: string): Promise<void> {
     console.log(`添加指标: ${indicatorId}`);
 
-    // 触发回调
-    this.addListeners.forEach((callback) => callback(indicatorId));
-
-    // 关闭模态窗口
+    // 关闭模态窗口（先关闭，避免用户重复点击）
     this.close();
+
+    // 触发回调（异步执行）
+    for (const callback of this.addListeners) {
+      await callback(indicatorId);
+    }
   }
 
   /**

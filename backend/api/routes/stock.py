@@ -151,10 +151,10 @@ def _build_indicators_only_response(df: pd.DataFrame, symbol: str) -> dict:
 
     result = {
         "symbol": symbol,
-        "sma5": to_value_data('MA5') or to_value_data('SMA5'),
-        "sma10": to_value_data('MA10') or to_value_data('SMA10'),
-        "sma20": to_value_data('MA20') or to_value_data('SMA20'),
-        "sma60": to_value_data('MA60') or to_value_data('SMA60'),
+        "ma5": to_value_data('MA5') or to_value_data('SMA5'),
+        "ma10": to_value_data('MA10') or to_value_data('SMA10'),
+        "ma20": to_value_data('MA20') or to_value_data('SMA20'),
+        "ma60": to_value_data('MA60') or to_value_data('SMA60'),
     }
 
     # MACD
@@ -236,10 +236,10 @@ def _build_response(df: pd.DataFrame, symbol: str) -> StockDataResponse:
         symbol=symbol,
         candlestick=candlestick,
         volume=volume,
-        sma5=to_value_data('MA5') or to_value_data('SMA5'),
-        sma10=to_value_data('MA10') or to_value_data('SMA10'),
-        sma20=to_value_data('MA20') or to_value_data('SMA20'),
-        sma60=to_value_data('MA60') or to_value_data('SMA60'),
+        ma5=to_value_data('MA5') or to_value_data('SMA5'),
+        ma10=to_value_data('MA10') or to_value_data('SMA10'),
+        ma20=to_value_data('MA20') or to_value_data('SMA20'),
+        ma60=to_value_data('MA60') or to_value_data('SMA60'),
         macd=MACDData(
             macd=to_value_data('MACD') or [],
             signal=to_value_data('MACD_signal') or [],

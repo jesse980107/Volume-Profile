@@ -200,10 +200,61 @@ export class IndicatorBarList {
       if (barElement) {
         const valueSpan = barElement.querySelector('.indicator-bar-value');
         if (valueSpan) {
-          valueSpan.textContent = value;
+          // 支持 HTML 内容（用于带颜色的数值显示）
+          valueSpan.innerHTML = value;
         }
       }
     }
+  }
+
+  /**
+   * 更新指标 label（用于动态参数变化）
+   */
+  updateLabel(id: string, newLabel: string): void {
+    const item = this.items.get(id);
+    if (!item) return;
+
+    item.label = newLabel;
+
+    // 只更新该 bar 的 label 部分
+    if (this.container) {
+      const barElement = this.container.querySelector(`[data-id="${id}"]`);
+      if (barElement) {
+        const nameSpan = barElement.querySelector('.indicator-bar-name');
+        if (nameSpan) {
+          nameSpan.textContent = newLabel;
+        }
+      }
+    }
+  }
+
+  /**
+   * 设置指标的加载状态
+   */
+  setLoading(id: string, isLoading: boolean): void {
+    if (!this.container) return;
+
+    const barElement = this.container.querySelector(`[data-id="${id}"]`);
+    if (!barElement) return;
+
+    const valueSpan = barElement.querySelector('.indicator-bar-value');
+    if (valueSpan) {
+      if (isLoading) {
+        valueSpan.textContent = '...';
+        valueSpan.classList.add('loading');
+      } else {
+        valueSpan.classList.remove('loading');
+      }
+    }
+  }
+
+  /**
+   * 设置所有指标的加载状态
+   */
+  setAllLoading(isLoading: boolean): void {
+    this.items.forEach((item) => {
+      this.setLoading(item.id, isLoading);
+    });
   }
 
   /**

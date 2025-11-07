@@ -159,13 +159,14 @@ class IndicatorConfigManager {
       const params = indicators.ma.parameters;
       const periods: number[] = [];
 
-      if (params.period1 && params.color1 !== 'invisible') {
+      // 只检查 period > 0，不检查颜色
+      if (params.period1 && params.period1 > 0) {
         periods.push(params.period1);
       }
-      if (params.period2 && params.color2 !== 'invisible') {
+      if (params.period2 && params.period2 > 0) {
         periods.push(params.period2);
       }
-      if (params.period3 && params.color3 !== 'invisible') {
+      if (params.period3 && params.period3 > 0) {
         periods.push(params.period3);
       }
 
@@ -217,15 +218,16 @@ class IndicatorConfigManager {
     const periods: number[] = [];
     const colors: string[] = [];
 
-    if (params.period1 && params.color1 !== 'invisible') {
+    // 只检查 period > 0，不检查颜色
+    if (params.period1 && params.period1 > 0) {
       periods.push(params.period1);
       colors.push(params.color1);
     }
-    if (params.period2 && params.color2 !== 'invisible') {
+    if (params.period2 && params.period2 > 0) {
       periods.push(params.period2);
       colors.push(params.color2);
     }
-    if (params.period3 && params.color3 !== 'invisible') {
+    if (params.period3 && params.period3 > 0) {
       periods.push(params.period3);
       colors.push(params.color3);
     }

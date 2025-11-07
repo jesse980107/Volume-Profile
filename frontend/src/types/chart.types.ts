@@ -29,10 +29,10 @@ export type ExtendedChartOptions = DeepPartial<ChartOptions>;
  * 指标颜色配置
  */
 export interface IndicatorColors {
-  sma5: string;
-  sma10: string;
-  sma20: string;
-  sma60: string;
+  ma5: string;
+  ma10: string;
+  ma20: string;
+  ma60: string;
   macd: string;
   macdSignal: string;
   macdHistogramPositive: string;

@@ -20,115 +20,13 @@
                 <!-- Indicator Selector 组件会动态插入到这里 -->
             </div>
 
-            <!-- 右侧：筹码峰面板 (320px) -->
-            <div id="chip-panel" class="chip-panel">
-                <div class="chip-header">
-                    <h3>筹码分布</h3>
-                    <div class="chip-date" id="chip-date">--</div>
-                </div>
-                <div id="chip-canvas" class="chip-canvas"></div>
-                <div class="chip-stats">
-                    <div class="stat-row">
-                        <div class="stat-item">
-                            <span class="stat-label">筹码集中度</span>
-                            <span class="stat-value" id="concentration">--</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">主力成本</span>
-                            <span class="stat-value" id="main-cost">--</span>
-                        </div>
-                    </div>
-                    <div class="stat-row">
-                        <div class="stat-item">
-                            <span class="stat-label">获利盘</span>
-                            <span class="stat-value profit" id="profit-ratio">--</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">套牢盘</span>
-                            <span class="stat-value loss" id="loss-ratio">--</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- 图例说明 -->
-                <div class="chip-legend">
-                    <div class="legend-item">
-                        <div class="legend-color profit"></div>
-                        <span>获利盘</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color loss"></div>
-                        <span>套牢盘</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color peak"></div>
-                        <span>筹码峰</span>
-                    </div>
-                </div>
-
-                <!-- 设置按钮 -->
-                <button id="chip-settings-btn" class="chip-settings-btn">⚙️ 筹码设置</button>
-            </div>
+            <!-- 右侧：筹码峰面板占位符（由 chipPanel 组件填充内容）-->
+            <div id="chip-panel-container" class="chip-panel"></div>
         </div>
     </div>
 
-    <!-- 筹码峰设置面板（弹窗） -->
-    <div id="chip-settings-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>筹码峰设置</h3>
-                <span class="modal-close">&times;</span>
-            </div>
-            <div class="modal-body">
-                <!-- 回溯天数 -->
-                <div class="setting-group">
-                    <label class="setting-label">回溯天数</label>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <input type="number" id="lookback-days" class="setting-input"
-                               value="90" min="1" max="9999"
-                               style="flex: 1;">
-                        <label style="display: flex; align-items: center; gap: 5px; color: #d1d4dc; font-size: 13px; cursor: pointer; white-space: nowrap;">
-                            <input type="checkbox" id="use-all-history" style="cursor: pointer;">
-                            全部历史
-                        </label>
-                    </div>
-                    <p class="setting-desc">限制参与筹码计算的历史数据范围（勾选"全部历史"则使用所有数据）</p>
-                </div>
-
-                <!-- 算法选择 -->
-                <div class="setting-group">
-                    <label class="setting-label">衰减算法</label>
-                    <select id="decay-algorithm" class="setting-select">
-                        <option value="cumulative" selected>简单累积（无衰减）</option>
-                        <option value="exponential_decay">指数衰减</option>
-                        <option value="linear_decay">线性衰减</option>
-                    </select>
-                    <p class="setting-desc">筹码的时间衰减方式，模拟换手转移</p>
-                </div>
-
-                <!-- 衰减率 -->
-                <div class="setting-group">
-                    <label class="setting-label">
-                        衰减率 <span id="decay-rate-display">0.05</span>
-                    </label>
-                    <input type="range" id="decay-rate" class="setting-slider"
-                           min="0" max="0.2" step="0.01" value="0.05">
-                    <p class="setting-desc">衰减速度，值越大历史筹码消失越快</p>
-                </div>
-
-                <!-- 价格档位数 -->
-                <div class="setting-group">
-                    <label class="setting-label">价格档位数</label>
-                    <input type="number" id="num-bins" class="setting-input"
-                           min="20" max="100" step="10" value="50">
-                    <p class="setting-desc">筹码分布的精细度，建议30-70之间</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="reset-settings-btn" class="btn-secondary">恢复默认</button>
-                <button id="apply-settings-btn" class="btn-primary">应用设置</button>
-            </div>
-        </div>
-    </div>
+    <!-- 筹码峰设置弹窗占位符 -->
+    <div id="chip-settings-modal-container"></div>
 
     <!-- 加载提示 -->
     <div id="loading" class="loading">

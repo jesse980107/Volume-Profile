@@ -53,10 +53,10 @@ class StockDataResponse(BaseModel):
     symbol: str
     candlestick: List[CandleData]
     volume: List[VolumeData]
-    sma5: List[ValueData] | None = None
-    sma10: List[ValueData] | None = None
-    sma20: List[ValueData] | None = None
-    sma60: List[ValueData] | None = None
+    ma5: List[ValueData] | None = None
+    ma10: List[ValueData] | None = None
+    ma20: List[ValueData] | None = None
+    ma60: List[ValueData] | None = None
     macd: MACDData | None = None
     kdj: KDJData | None = None
     rsi: List[ValueData] | None = None
