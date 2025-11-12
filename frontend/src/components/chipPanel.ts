@@ -53,11 +53,6 @@ export class ChipPanel {
    */
   private getPanelHTML(): string {
     return `
-      <div class="chip-header">
-        <h3>筹码分布</h3>
-        <div class="chip-date" id="chip-date">--</div>
-      </div>
-
       <div id="chip-canvas" class="chip-canvas"></div>
 
       <div class="chip-stats">

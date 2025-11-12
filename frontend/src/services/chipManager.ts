@@ -37,7 +37,7 @@ export class ChipManager {
   private totalVolume: number = 0;
 
   /**
-   * 初始化 ECharts 实例
+   * 初始化 ECharts 实例（仅创建容器，显示占位状态）
    */
   init(): void {
     this.container = document.getElementById('chip-canvas');
@@ -47,6 +47,9 @@ export class ChipManager {
       return;
     }
 
+    // 设置初始占位高度，避免 ECharts 初始化失败
+    this.container.style.height = '400px';
+
     // 初始化深色主题
     this.chart = echarts.init(this.container, 'dark');
 
@@ -54,10 +57,33 @@ export class ChipManager {
     const option = this.getBaseOption();
     this.chart.setOption(option);
 
+    // 显示占位状态
+    this.showPlaceholder();
+
     // 响应式处理
     this.setupResize();
 
-    console.log('✓ 筹码峰管理器初始化成功');
+    console.log('✓ 筹码峰管理器初始化成功（占位状态）');
+  }
+
+  /**
+   * 显示占位状态（等待主图加载）
+   */
+  private showPlaceholder(): void {
+    if (!this.chart) return;
+
+    this.chart.setOption({
+      graphic: {
+        type: 'text',
+        left: 'center',
+        top: 'middle',
+        style: {
+          text: '等待主图加载...',
+          fontSize: 14,
+          fill: '#787b86',
+        },
+      },
+    });
   }
 
   /**
@@ -69,8 +95,8 @@ export class ChipManager {
       grid: {
         left: 10,
         right: 50,
-        top: 20,
-        bottom: 20,
+        top: 0,        // 关键：顶部无边距，与主图对齐
+        bottom: 0,     // 关键：底部无边距，与主图对齐
         containLabel: true,
       },
       tooltip: {
@@ -81,12 +107,15 @@ export class ChipManager {
         formatter: (params: any) => {
           if (!params || params.length === 0) return '';
           const data = params[0];
-          const price = data.name;
-          const volume = data.value;
-          const percentage = data.data.percentage || 0;
+
+          // data.value 是 [volume, price] 数组
+          const volume = Array.isArray(data.value) ? data.value[0] : data.value;
+          const price = Array.isArray(data.value) ? data.value[1] : data.name;
+          const percentage = data.data?.percentage || 0;
+
           return `
                         <div style="padding: 5px;">
-                            <div style="font-weight: 600;">价格: ¥${price}</div>
+                            <div style="font-weight: 600;">价格: ¥${typeof price === 'number' ? price.toFixed(2) : price}</div>
                             <div>成交量: ${this.formatVolume(volume)}</div>
                             <div>占比: ${percentage.toFixed(2)}%</div>
                         </div>
@@ -105,15 +134,14 @@ export class ChipManager {
         min: 0,
       },
       yAxis: {
-        type: 'category',
+        type: 'value',  // 使用 value 类型以支持动态 min/max
         position: 'right',
-        data: [],
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
           color: '#787b86',
           fontSize: 11,
-          formatter: (value: any) => '¥' + value,
+          formatter: (value: number) => '¥' + value.toFixed(2),
         },
         splitLine: { show: false },
       },
@@ -144,15 +172,20 @@ export class ChipManager {
    * @param chipData - 筹码数据 { distribution: [], peaks: [] }
    */
   updateGlobal(chipData: ChipDistributionResult): void {
+    console.log('🔍 [chipManager.updateGlobal] 开始更新筹码峰数据');
+
     if (!this.chart) {
       console.warn('ECharts 实例未初始化');
       return;
     }
 
     if (!chipData || !chipData.distribution || chipData.distribution.length === 0) {
+      console.warn('⚠️ 筹码数据为空，隐藏图表');
       this.hide();
       return;
     }
+
+    console.log(`🔍 [chipManager.updateGlobal] 筹码数据点数量: ${chipData.distribution.length}`);
 
     // 存储数据供后续使用
     this.globalChipData = chipData;
@@ -176,26 +209,6 @@ export class ChipManager {
       };
     });
 
-    // 获取价格范围
-    const minPrice = sorted[0].price;
-    const maxPrice = sorted[sorted.length - 1].price;
-
-    // Y 轴配置 - 价格轴（使用 value 类型以支持精确的 min/max）
-    const yAxisConfig = {
-      type: 'value' as const,
-      position: 'right' as const,
-      min: minPrice,
-      max: maxPrice,
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: {
-        color: '#787b86',
-        fontSize: 11,
-        formatter: (value: number) => '¥' + value.toFixed(2),
-      },
-      splitLine: { show: false },
-    };
-
     // X 轴配置 - 成交量（隐藏）
     const xAxisConfig = {
       type: 'value' as const,
@@ -203,42 +216,71 @@ export class ChipManager {
       min: 0,
     };
 
-    // 更新图表
-    this.chart.setOption({
-      xAxis: xAxisConfig,
-      yAxis: yAxisConfig,
-      series: [
-        {
-          type: 'custom',  // 使用 custom 类型绘制横向条形
-          renderItem: (params: any, api: any) => {
-            const volume = api.value(0);  // X: 成交量
-            const price = api.value(1);   // Y: 价格
-            const yPos = api.coord([0, price])[1];  // 价格对应的像素 Y 坐标
-            const xEnd = api.coord([volume, price])[0];  // 成交量对应的像素 X 坐标
+    console.log('🔍 [chipManager.updateGlobal] 准备调用 setOption 清除占位并设置数据...');
+    console.log('🔍 [chipManager.updateGlobal] Y轴范围由 syncYAxis() 控制，此处不设置');
 
-            const height = 8;  // 条形高度
-            const barStyle = chartData[params.dataIndex].itemStyle;
+    // 更新图表（异步调用避免 "during main process" 警告）
+    // 注意: Y轴的 min/max 由外部 syncYAxis() 控制，此处只更新数据
+    setTimeout(() => {
+      if (!this.chart) return;
 
-            return {
-              type: 'rect',
-              shape: {
-                x: params.coordSys.x,  // 起点 X（图表左侧）
-                y: yPos - height / 2,  // Y 坐标居中
-                width: xEnd - params.coordSys.x,  // 宽度
-                height: height,
-              },
-              style: {
-                fill: barStyle.color,
-              },
-            };
+      this.chart.setOption({
+        graphic: [],  // 清除占位状态（使用空数组）
+        xAxis: xAxisConfig,
+        // yAxis 不在这里设置，由 syncYAxis() 统一控制
+        series: [
+          {
+            type: 'custom',  // 使用 custom 类型绘制横向条形
+            renderItem: (params: any, api: any) => {
+              const volume = api.value(0);  // X: 成交量
+              const price = api.value(1);   // Y: 价格
+              const yPos = api.coord([0, price])[1];  // 价格对应的像素 Y 坐标
+              const xEnd = api.coord([volume, price])[0];  // 成交量对应的像素 X 坐标
+
+              const height = 8;  // 条形高度
+              const barStyle = chartData[params.dataIndex].itemStyle;
+
+              return {
+                type: 'rect',
+                shape: {
+                  x: params.coordSys.x,  // 起点 X（图表左侧）
+                  y: yPos - height / 2,  // Y 坐标居中
+                  width: xEnd - params.coordSys.x,  // 宽度
+                  height: height,
+                },
+                style: {
+                  fill: barStyle.color,
+                },
+              };
+            },
+            data: chartData,
           },
-          data: chartData,
-        },
-      ],
-    });
+        ],
+      });
+
+      console.log('✅ [chipManager.updateGlobal] setOption 调用完成，占位应该已清除');
+    }, 0);
 
     // 更新统计信息（不显示当前价格相关的）
     this.updateGlobalStats(chipData, totalVolume);
+  }
+
+  /**
+   * 设置容器高度以匹配 Lightweight Charts 主图高度
+   * @param height - Pane 0 的高度（像素）
+   */
+  setContainerHeight(height: number): void {
+    if (!this.container) return;
+
+    this.container.style.height = `${height}px`;
+
+    // 调整容器后需要 resize ECharts
+    // 使用 setTimeout 避免 "during main process" 警告
+    if (this.chart) {
+      setTimeout(() => {
+        this.chart?.resize();
+      }, 0);
+    }
   }
 
   /**
@@ -249,13 +291,18 @@ export class ChipManager {
   syncYAxis(minPrice: number, maxPrice: number): void {
     if (!this.chart || !this.globalChipData) return;
 
+    console.log(`🔍 [chipManager.syncYAxis] 接收到价格范围: min=${minPrice.toFixed(2)}, max=${maxPrice.toFixed(2)}`);
+
     // 过滤出在可见范围内的筹码数据
     const visibleChips = this.globalChipData.distribution.filter(
       (d) => d.price >= minPrice && d.price <= maxPrice
     );
 
+    console.log(`🔍 [chipManager.syncYAxis] 可见筹码数量: ${visibleChips.length}/${this.globalChipData.distribution.length}`);
+
     // 如果可见范围内没有筹码，只更新 Y 轴范围，不更新数据
     if (visibleChips.length === 0) {
+      console.warn('⚠️ [chipManager.syncYAxis] 可见范围内没有筹码数据！');
       this.chart.setOption({
         yAxis: {
           min: minPrice,
@@ -267,6 +314,8 @@ export class ChipManager {
 
     // 按价格排序
     const sorted = [...visibleChips].sort((a, b) => a.price - b.price);
+
+    console.log(`🔍 [chipManager.syncYAxis] 筹码价格范围: ${sorted[0].price.toFixed(2)} ~ ${sorted[sorted.length - 1].price.toFixed(2)}`);
 
     // 计算总成交量（使用可见范围内的）
     const totalVolume = sorted.reduce((sum, d) => sum + d.volume, 0);
@@ -283,18 +332,27 @@ export class ChipManager {
       };
     });
 
+    console.log(`🔍 [chipManager.syncYAxis] 设置 ECharts Y 轴: min=${minPrice.toFixed(2)}, max=${maxPrice.toFixed(2)}`);
+
     // 关键：强制设置 Y 轴范围与 Lightweight Charts 一致
-    this.chart.setOption({
-      yAxis: {
-        min: minPrice,
-        max: maxPrice,
-      },
-      series: [
-        {
-          data: chartData,
+    // 使用 setTimeout 避免 "during main process" 警告
+    setTimeout(() => {
+      if (!this.chart) return;
+
+      this.chart.setOption({
+        yAxis: {
+          min: minPrice,
+          max: maxPrice,
         },
-      ],
-    });
+        series: [
+          {
+            data: chartData,
+          },
+        ],
+      });
+
+      console.log(`✅ [chipManager.syncYAxis] 同步完成，数据点数量: ${chartData.length}`);
+    }, 0);
   }
 
   /**

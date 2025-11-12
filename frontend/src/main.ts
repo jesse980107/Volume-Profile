@@ -485,20 +485,8 @@ async function switchTimeframe(interval: TimeframeType): Promise<void> {
       state.series.rsi.setData(data.rsi);
     }
 
-    // 6. 更新筹码分布（如果已加载）
-    chipCalculator.initialize(data.candlestick, data.volume);
-    const options = chipPanel.getOptions();
-    chipCalculator.updateOptions(options);
-
-    utils.showLoading('正在计算筹码分布...');
-    chipCalculator.precomputeAll();
-    utils.hideLoading();
-
-    const lastCandle = data.candlestick[data.candlestick.length - 1];
-    const lastChipData = chipCalculator.get(lastCandle.time);
-    if (lastChipData) {
-      chipManager.updateGlobal(lastChipData);
-    }
+    // 6. 重新初始化筹码分布
+    await initChipDistribution();
 
     // 7. 调整可见范围
     if (state.chart) {
@@ -884,19 +872,7 @@ async function initIndicators(fullReload: boolean = false): Promise<void> {
         if (state.series.volume) state.series.volume.setData(data.volume);
       }
 
-      // 重新计算筹码分布
-      chipCalculator.initialize(data.candlestick, data.volume);
-      const options = chipPanel.getOptions();
-      chipCalculator.updateOptions(options);
-      utils.showLoading('正在计算筹码分布...');
-      chipCalculator.precomputeAll();
-      utils.hideLoading();
-
-      const lastCandle = data.candlestick[data.candlestick.length - 1];
-      const lastChipData = chipCalculator.get(lastCandle.time);
-      if (lastChipData) {
-        chipManager.updateGlobal(lastChipData);
-      }
+      // 注意：筹码分布的初始化已移到独立的 initChipDistribution() 函数
     } else {
       // 只重新计算指标
       console.log('📡 只重新计算指标...');
@@ -1150,36 +1126,69 @@ function setupResponsive(): void {
   console.log('✅ 响应式布局设置完成');
 }
 
-// ==================== 筹码峰初始化 ====================
-async function initializeChipDistribution(): Promise<void> {
-  if (!state.stockData) return;
+// ==================== 筹码峰初始化（独立函数，确保主图已就绪）====================
+/**
+ * 初始化筹码分布
+ * 前置条件：主图数据已加载且价格轴已就绪
+ */
+async function initChipDistribution(): Promise<void> {
+  if (!state.stockData || !state.chart) {
+    console.error('❌ 无法初始化筹码峰：主图数据或图表实例不存在');
+    return;
+  }
+
+  console.log('🎨 开始初始化筹码峰（主图已就绪）...');
 
   try {
+    // ===== 阶段 1: 验证主图价格轴是否就绪 =====
+    const priceScale = state.chart.priceScale('right');
+    const range = priceScale.getVisibleRange();
+
+    if (!range || range.from === null || range.to === null) {
+      console.error('❌ 主图价格轴未就绪，无法初始化筹码峰');
+      console.error('   价格范围:', range);
+      return;
+    }
+
+    console.log(`✅ 主图价格轴已就绪: ${range.from.toFixed(2)} ~ ${range.to.toFixed(2)}`);
+
+    // ===== 阶段 2: 初始化筹码计算器 =====
     chipCalculator.initialize(state.stockData.candlestick, state.stockData.volume);
 
     const options = chipPanel.getOptions();
     chipCalculator.updateOptions(options);
 
-    console.log('开始预计算筹码分布...');
+    // ===== 阶段 3: 预计算筹码分布 =====
+    console.log('📊 开始预计算筹码分布...');
     utils.showLoading('正在计算筹码分布...');
 
     chipCalculator.precomputeAll((current, total) => {
       const progress = ((current / total) * 100).toFixed(0);
-      console.log(`预计算进度: ${progress}%`);
+      if (current % 500 === 0) {
+        console.log(`   预计算进度: ${progress}%`);
+      }
     });
 
     utils.hideLoading();
-    console.log('✓ 筹码分布预计算完成');
+    console.log('✅ 筹码分布预计算完成');
 
+    // ===== 阶段 4: 更新筹码峰图表 =====
     const lastCandle = state.stockData.candlestick[state.stockData.candlestick.length - 1];
     const lastChipData = chipCalculator.get(lastCandle.time);
+
     if (lastChipData) {
       chipManager.updateGlobal(lastChipData);
-      // 初始化后立即同步 Y 轴
+      console.log('✅ 筹码峰数据已更新');
+
+      // ===== 阶段 5: 同步 Y 轴（此时主图已完全就绪）=====
       syncChipYAxis();
+    } else {
+      console.warn('⚠️ 无法获取最新筹码数据');
     }
+
+    console.log('✅ 筹码峰初始化完成');
   } catch (error) {
-    console.error('筹码分布初始化失败:', error);
+    console.error('❌ 筹码峰初始化失败:', error);
     utils.hideLoading();
   }
 }
@@ -1208,7 +1217,11 @@ function setupChipDistributionSync(): void {
       return;
     }
 
+    // 更新筹码数据
     chipManager.updateGlobal(chipData);
+
+    // 立即重新同步 Y 轴，防止 updateGlobal 覆盖主图的价格范围
+    syncChipYAxis();
 
     let cursorPrice = (candleData as any).close;
 
@@ -1271,13 +1284,43 @@ function syncChipYAxis(): void {
   if (!state.chart || !state.stockData) return;
 
   try {
-    // 获取主图的价格轴
-    const priceScale = state.chart.priceScale('right');
-    const range = priceScale.getVisibleRange();
+    // 1. 获取主图 Pane 0 的高度
+    const paneSize = state.chart.paneSize(0);
+    console.log('🔍 [syncChipYAxis] Pane 0 高度:', paneSize.height);
 
-    if (range && range.from !== null && range.to !== null) {
-      // 同步 ECharts Y 轴
-      chipManager.syncYAxis(range.from, range.to);
+    // 2. 设置筹码峰容器高度与主图一致
+    chipManager.setContainerHeight(paneSize.height);
+
+    // 3. 获取主图的价格范围
+    const priceScale = state.chart.priceScale('right');
+
+    // 方法 1: getVisibleRange()
+    const range1 = priceScale.getVisibleRange();
+    console.log('📊 方法1 getVisibleRange():', range1);
+
+    // 方法 2: coordinateToPrice() 获取实际绘图区域的价格范围
+    const topPrice = state.series.candle?.coordinateToPrice(0);
+    const bottomPrice = state.series.candle?.coordinateToPrice(paneSize.height);
+    console.log('📊 方法2 coordinateToPrice():', { from: bottomPrice, to: topPrice });
+
+    // 对比差异
+    if (range1 && topPrice !== null && bottomPrice !== null) {
+      console.log('📊 差异分析:', {
+        '顶部差异': (topPrice - range1.to).toFixed(4),
+        '底部差异': (range1.from - bottomPrice).toFixed(4),
+        '顶部padding': topPrice > range1.to ? '有padding' : '无padding',
+        '底部padding': bottomPrice < range1.from ? '有padding' : '无padding'
+      });
+    }
+
+    // 使用 coordinateToPrice 获取的真实绘图范围
+    if (topPrice !== null && bottomPrice !== null) {
+      console.log(`🔍 [syncChipYAxis] 使用真实绘图范围: min=${bottomPrice.toFixed(2)}, max=${topPrice.toFixed(2)}`);
+      chipManager.syncYAxis(bottomPrice, topPrice);
+    } else if (range1 && range1.from !== null && range1.to !== null) {
+      // 降级方案：使用 getVisibleRange
+      console.log(`🔍 [syncChipYAxis] 降级使用 getVisibleRange: min=${range1.from.toFixed(2)}, max=${range1.to.toFixed(2)}`);
+      chipManager.syncYAxis(range1.from, range1.to);
     }
   } catch (error) {
     console.warn('同步筹码峰 Y 轴失败:', error);
@@ -1503,8 +1546,10 @@ function setupChipSettingsHandler(): void {
     const newOptions = customEvent.detail;
 
     try {
+      // 更新配置
       chipCalculator.updateOptions(newOptions);
 
+      // 重新计算筹码分布
       utils.showLoading('正在重新计算筹码分布...');
       chipCalculator.precomputeAll((current, total) => {
         const progress = ((current / total) * 100).toFixed(0);
@@ -1514,23 +1559,25 @@ function setupChipSettingsHandler(): void {
       });
       utils.hideLoading();
 
+      // 更新筹码峰图表并同步 Y 轴
       if (state.stockData) {
         const lastCandle = state.stockData.candlestick[state.stockData.candlestick.length - 1];
         const lastChipData = chipCalculator.get(lastCandle.time);
         if (lastChipData) {
           chipManager.updateGlobal(lastChipData);
+          syncChipYAxis(); // 同步 Y 轴
         }
       }
 
-      console.log('✓ 筹码分布已更新');
+      console.log('✅ 筹码分布已更新');
     } catch (error) {
-      console.error('应用设置失败:', error);
+      console.error('❌ 应用设置失败:', error);
       utils.hideLoading();
       alert('应用设置失败: ' + (error as Error).message);
     }
   });
 
-  console.log('✓ 筹码设置监听器已注册');
+  console.log('✅ 筹码设置监听器已注册');
 }
 
 // ==================== 主初始化 ====================
@@ -1538,29 +1585,35 @@ async function init(): Promise<void> {
   console.log('🚀 应用初始化开始...');
 
   try {
-    // 1. 初始化图表（创建 chart 和 series 实例）
+    // 1. 初始化图表容器（创建 chart 实例）
     initializeCharts();
 
     // 2. 初始化控制面板（包括 indicatorBarList.init()）
     setupControls();
 
-    // 3. 初始化筹码峰面板组件（独立于数据加载）
-    chipPanel.init();              // 填充内容到占位符 + 初始化 chipManager
-    setupChipDistributionSync();   // 设置与 Lightweight Charts 的联动
-    setupChipSettingsHandler();    // 监听设置变更事件
-    console.log('✅ 筹码峰面板已加载');
+    // 3. 初始化筹码峰面板 DOM 和 ECharts 容器（仅占位，不加载数据）
+    chipPanel.init();
+    console.log('✅ 筹码峰面板 DOM 已创建（占位状态）');
 
-    // 4. 使用统一的指标初始化函数（fullReload = true）
-    // 这会：加载配置 → 请求后端数据 → 更新 series → 更新 UI
+    // 4. 加载主图数据和指标（创建 series + 设置数据）
     await initIndicators(true);
+    console.log('✅ 主图和指标已加载');
 
-    // 5. 初始化 OHLCV Bar 组件
+    // 5. ✅ 新增：初始化筹码分布（此时主图已就绪）
+    await initChipDistribution();
+
+    // 6. 设置筹码峰后续联动（缩放、拖动等）
+    setupChipDistributionSync();
+    setupChipSettingsHandler();
+    console.log('✅ 筹码峰联动已设置');
+
+    // 7. 初始化 OHLCV Bar 组件
     if (state.chart) {
       ohlcvBar.init(state.chart, state.series, 'main-chart');
       console.log('✅ OHLCV Bar 组件已加载');
     }
 
-    // 6. 响应式
+    // 8. 响应式
     setupResponsive();
 
     console.log('✅ 应用初始化完成');

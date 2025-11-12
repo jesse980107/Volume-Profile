@@ -24,7 +24,7 @@
     width: 320px;
     height: 100%;
     background: #1e222d;
-    padding: 20px;
+    padding: 0;  /* 关键：去掉 padding，让绘图区域从顶部开始 */
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -56,7 +56,7 @@
 
 /* ==================== 图表容器 ==================== */
 .chip-canvas {
-    flex: 1;
+    flex: 0 0 auto;  /* 不自动伸缩，高度由 JS 控制 */
     min-height: 0;
     position: relative;
 }
@@ -74,8 +74,8 @@
 
 /* ==================== 统计信息 ==================== */
 .chip-stats {
-    margin-top: 15px;
-    padding-top: 15px;
+    flex: 0 0 auto;  /* 固定高度，不自动伸缩 */
+    padding: 15px 20px;  /* 恢复内边距（只在 stats 区域） */
     border-top: 1px solid #2a2e39;
 }
 
