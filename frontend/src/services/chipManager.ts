@@ -57,33 +57,10 @@ export class ChipManager {
     const option = this.getBaseOption();
     this.chart.setOption(option);
 
-    // 显示占位状态
-    this.showPlaceholder();
-
     // 响应式处理
     this.setupResize();
 
-    console.log('✓ 筹码峰管理器初始化成功（占位状态）');
-  }
-
-  /**
-   * 显示占位状态（等待主图加载）
-   */
-  private showPlaceholder(): void {
-    if (!this.chart) return;
-
-    this.chart.setOption({
-      graphic: {
-        type: 'text',
-        left: 'center',
-        top: 'middle',
-        style: {
-          text: '等待主图加载...',
-          fontSize: 14,
-          fill: '#787b86',
-        },
-      },
-    });
+    console.log('✓ 筹码峰管理器初始化成功');
   }
 
   /**
@@ -216,7 +193,7 @@ export class ChipManager {
       min: 0,
     };
 
-    console.log('🔍 [chipManager.updateGlobal] 准备调用 setOption 清除占位并设置数据...');
+    console.log('🔍 [chipManager.updateGlobal] 准备调用 setOption 设置数据...');
     console.log('🔍 [chipManager.updateGlobal] Y轴范围由 syncYAxis() 控制，此处不设置');
 
     // 更新图表（异步调用避免 "during main process" 警告）
@@ -225,7 +202,6 @@ export class ChipManager {
       if (!this.chart) return;
 
       this.chart.setOption({
-        graphic: [],  // 清除占位状态（使用空数组）
         xAxis: xAxisConfig,
         // yAxis 不在这里设置，由 syncYAxis() 统一控制
         series: [
@@ -258,7 +234,7 @@ export class ChipManager {
         ],
       });
 
-      console.log('✅ [chipManager.updateGlobal] setOption 调用完成，占位应该已清除');
+      console.log('✅ [chipManager.updateGlobal] setOption 调用完成');
     }, 0);
 
     // 更新统计信息（不显示当前价格相关的）
