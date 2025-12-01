@@ -145,65 +145,110 @@ export class ChipManager {
   }
 
   /**
-   * 更新筹码峰数据（全局视图）
+   * 更新筹码峰数据（仅存储数据，不绘制）
    * @param chipData - 筹码数据 { distribution: [], peaks: [] }
+   * 注意：调用此方法后，必须调用 syncYAxis() 才能显示数据
    */
   updateGlobal(chipData: ChipDistributionResult): void {
-    console.log('🔍 [chipManager.updateGlobal] 开始更新筹码峰数据');
-
     if (!this.chart) {
-      console.warn('ECharts 实例未初始化');
+      console.warn('⚠️ [chipManager] ECharts 实例未初始化');
       return;
     }
 
     if (!chipData || !chipData.distribution || chipData.distribution.length === 0) {
-      console.warn('⚠️ 筹码数据为空，隐藏图表');
+      console.warn('⚠️ [chipManager] 筹码数据为空');
       this.hide();
       return;
     }
 
-    console.log(`🔍 [chipManager.updateGlobal] 筹码数据点数量: ${chipData.distribution.length}`);
-
-    // 存储数据供后续使用
+    // 存储数据供 syncYAxis 使用
     this.globalChipData = chipData;
 
-    // 按价格排序（从低到高）
-    const sorted = [...chipData.distribution].sort((a, b) => a.price - b.price);
-
     // 计算总成交量
-    const totalVolume = sorted.reduce((sum, d) => sum + d.volume, 0);
-    this.totalVolume = totalVolume;
+    this.totalVolume = chipData.distribution.reduce((sum, d) => sum + d.volume, 0);
 
-    // 提取数据 - 横向柱状图
+    // 更新统计信息（不显示当前价格相关的）
+    this.updateGlobalStats(chipData, this.totalVolume);
+  }
+
+  /**
+   * 设置容器高度以匹配 Lightweight Charts 主图高度
+   * @param height - Pane 0 的高度（像素）
+   */
+  setContainerHeight(height: number): void {
+    if (!this.container) return;
+
+    this.container.style.height = `${height}px`;
+
+    // 调整容器后需要 resize ECharts
+    // 使用 setTimeout 避免 "during main process" 警告
+    if (this.chart) {
+      setTimeout(() => {
+        this.chart?.resize();
+      }, 0);
+    }
+  }
+
+  /**
+   * 同步 Y 轴到 Lightweight Charts 的价格范围，并绘制筹码分布图
+   * @param minPrice - Lightweight Charts 的最小价格
+   * @param maxPrice - Lightweight Charts 的最大价格
+   */
+  syncYAxis(minPrice: number, maxPrice: number): void {
+    if (!this.chart || !this.globalChipData) {
+      return;
+    }
+
+    // 过滤出在可见范围内的筹码数据
+    const visibleChips = this.globalChipData.distribution.filter(
+      (d) => d.price >= minPrice && d.price <= maxPrice
+    );
+
+    // 如果可见范围内没有筹码，只更新 Y 轴范围，清空数据
+    if (visibleChips.length === 0) {
+      setTimeout(() => {
+        if (!this.chart) return;
+        this.chart.setOption({
+          yAxis: { min: minPrice, max: maxPrice },
+          series: [{ data: [] }],
+        });
+      }, 0);
+      return;
+    }
+
+    // 按价格排序
+    const sorted = [...visibleChips].sort((a, b) => a.price - b.price);
+
+    // 计算总成交量（使用可见范围内的）
+    const totalVolume = sorted.reduce((sum, d) => sum + d.volume, 0);
+
+    // 提取数据 - [X:成交量, Y:价格] 横向条形图
     const chartData: any[] = sorted.map((d) => {
-      const isPeak = this.isPeak(d.price, chipData.peaks);
+      const isPeak = this.isPeak(d.price, this.globalChipData!.peaks);
       const percentage = (d.volume / totalVolume) * 100;
 
       return {
-        value: [d.volume, d.price], // [X轴:成交量, Y轴:价格] - 横向条形图
+        value: [d.volume, d.price], // [X轴:成交量, Y轴:价格]
         percentage: percentage,
-        itemStyle: this.getBarStyle(isPeak, false), // 不区分获利盘套牢盘
+        itemStyle: this.getBarStyle(isPeak, false),
       };
     });
 
-    // X 轴配置 - 成交量（隐藏）
-    const xAxisConfig = {
-      type: 'value' as const,
-      show: false,
-      min: 0,
-    };
-
-    console.log('🔍 [chipManager.updateGlobal] 准备调用 setOption 设置数据...');
-    console.log('🔍 [chipManager.updateGlobal] Y轴范围由 syncYAxis() 控制，此处不设置');
-
-    // 更新图表（异步调用避免 "during main process" 警告）
-    // 注意: Y轴的 min/max 由外部 syncYAxis() 控制，此处只更新数据
+    // 关键：一次性设置 Y 轴范围 + series 配置（包括 renderItem）
+    // 这样确保 renderItem 使用正确的 Y 轴范围进行价格→像素转换
     setTimeout(() => {
       if (!this.chart) return;
 
       this.chart.setOption({
-        xAxis: xAxisConfig,
-        // yAxis 不在这里设置，由 syncYAxis() 统一控制
+        xAxis: {
+          type: 'value',
+          show: false,
+          min: 0,
+        },
+        yAxis: {
+          min: minPrice,
+          max: maxPrice,
+        },
         series: [
           {
             type: 'custom',  // 使用 custom 类型绘制横向条形
@@ -233,101 +278,6 @@ export class ChipManager {
           },
         ],
       });
-
-      console.log('✅ [chipManager.updateGlobal] setOption 调用完成');
-    }, 0);
-
-    // 更新统计信息（不显示当前价格相关的）
-    this.updateGlobalStats(chipData, totalVolume);
-  }
-
-  /**
-   * 设置容器高度以匹配 Lightweight Charts 主图高度
-   * @param height - Pane 0 的高度（像素）
-   */
-  setContainerHeight(height: number): void {
-    if (!this.container) return;
-
-    this.container.style.height = `${height}px`;
-
-    // 调整容器后需要 resize ECharts
-    // 使用 setTimeout 避免 "during main process" 警告
-    if (this.chart) {
-      setTimeout(() => {
-        this.chart?.resize();
-      }, 0);
-    }
-  }
-
-  /**
-   * 同步 Y 轴到 Lightweight Charts 的价格范围
-   * @param minPrice - Lightweight Charts 的最小价格
-   * @param maxPrice - Lightweight Charts 的最大价格
-   */
-  syncYAxis(minPrice: number, maxPrice: number): void {
-    if (!this.chart || !this.globalChipData) return;
-
-    console.log(`🔍 [chipManager.syncYAxis] 接收到价格范围: min=${minPrice.toFixed(2)}, max=${maxPrice.toFixed(2)}`);
-
-    // 过滤出在可见范围内的筹码数据
-    const visibleChips = this.globalChipData.distribution.filter(
-      (d) => d.price >= minPrice && d.price <= maxPrice
-    );
-
-    console.log(`🔍 [chipManager.syncYAxis] 可见筹码数量: ${visibleChips.length}/${this.globalChipData.distribution.length}`);
-
-    // 如果可见范围内没有筹码，只更新 Y 轴范围，不更新数据
-    if (visibleChips.length === 0) {
-      console.warn('⚠️ [chipManager.syncYAxis] 可见范围内没有筹码数据！');
-      this.chart.setOption({
-        yAxis: {
-          min: minPrice,
-          max: maxPrice,
-        },
-      });
-      return;
-    }
-
-    // 按价格排序
-    const sorted = [...visibleChips].sort((a, b) => a.price - b.price);
-
-    console.log(`🔍 [chipManager.syncYAxis] 筹码价格范围: ${sorted[0].price.toFixed(2)} ~ ${sorted[sorted.length - 1].price.toFixed(2)}`);
-
-    // 计算总成交量（使用可见范围内的）
-    const totalVolume = sorted.reduce((sum, d) => sum + d.volume, 0);
-
-    // 提取数据 - [X:成交量, Y:价格] 横向条形图
-    const chartData: any[] = sorted.map((d) => {
-      const isPeak = this.isPeak(d.price, this.globalChipData!.peaks);
-      const percentage = (d.volume / totalVolume) * 100;
-
-      return {
-        value: [d.volume, d.price], // [X轴:成交量, Y轴:价格]
-        percentage: percentage,
-        itemStyle: this.getBarStyle(isPeak, false),
-      };
-    });
-
-    console.log(`🔍 [chipManager.syncYAxis] 设置 ECharts Y 轴: min=${minPrice.toFixed(2)}, max=${maxPrice.toFixed(2)}`);
-
-    // 关键：强制设置 Y 轴范围与 Lightweight Charts 一致
-    // 使用 setTimeout 避免 "during main process" 警告
-    setTimeout(() => {
-      if (!this.chart) return;
-
-      this.chart.setOption({
-        yAxis: {
-          min: minPrice,
-          max: maxPrice,
-        },
-        series: [
-          {
-            data: chartData,
-          },
-        ],
-      });
-
-      console.log(`✅ [chipManager.syncYAxis] 同步完成，数据点数量: ${chartData.length}`);
     }, 0);
   }
 

@@ -1286,7 +1286,6 @@ function syncChipYAxis(): void {
   try {
     // 1. 获取主图 Pane 0 的高度
     const paneSize = state.chart.paneSize(0);
-    console.log('🔍 [syncChipYAxis] Pane 0 高度:', paneSize.height);
 
     // 2. 设置筹码峰容器高度与主图一致
     chipManager.setContainerHeight(paneSize.height);
@@ -1294,36 +1293,21 @@ function syncChipYAxis(): void {
     // 3. 获取主图的价格范围
     const priceScale = state.chart.priceScale('right');
 
-    // 方法 1: getVisibleRange()
-    const range1 = priceScale.getVisibleRange();
-    console.log('📊 方法1 getVisibleRange():', range1);
-
-    // 方法 2: coordinateToPrice() 获取实际绘图区域的价格范围
+    // 使用 coordinateToPrice() 获取实际绘图区域的价格范围（包含 padding）
     const topPrice = state.series.candle?.coordinateToPrice(0);
     const bottomPrice = state.series.candle?.coordinateToPrice(paneSize.height);
-    console.log('📊 方法2 coordinateToPrice():', { from: bottomPrice, to: topPrice });
 
-    // 对比差异
-    if (range1 && topPrice !== null && bottomPrice !== null) {
-      console.log('📊 差异分析:', {
-        '顶部差异': (topPrice - range1.to).toFixed(4),
-        '底部差异': (range1.from - bottomPrice).toFixed(4),
-        '顶部padding': topPrice > range1.to ? '有padding' : '无padding',
-        '底部padding': bottomPrice < range1.from ? '有padding' : '无padding'
-      });
-    }
-
-    // 使用 coordinateToPrice 获取的真实绘图范围
     if (topPrice !== null && bottomPrice !== null) {
-      console.log(`🔍 [syncChipYAxis] 使用真实绘图范围: min=${bottomPrice.toFixed(2)}, max=${topPrice.toFixed(2)}`);
       chipManager.syncYAxis(bottomPrice, topPrice);
-    } else if (range1 && range1.from !== null && range1.to !== null) {
+    } else {
       // 降级方案：使用 getVisibleRange
-      console.log(`🔍 [syncChipYAxis] 降级使用 getVisibleRange: min=${range1.from.toFixed(2)}, max=${range1.to.toFixed(2)}`);
-      chipManager.syncYAxis(range1.from, range1.to);
+      const range = priceScale.getVisibleRange();
+      if (range && range.from !== null && range.to !== null) {
+        chipManager.syncYAxis(range.from, range.to);
+      }
     }
   } catch (error) {
-    console.warn('同步筹码峰 Y 轴失败:', error);
+    console.warn('⚠️ [syncChipYAxis] 同步失败:', error);
   }
 }
 
